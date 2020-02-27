@@ -1,0 +1,85 @@
+* PG-DEPLOY
+A simple deployment strategy.
+
+Filepaths & examples given in this document have been sourced from
+[[https://git.thinkproject.com/projects/CS/repos/cs_code/browse][cs_code (implicitly the root of paths)]], as of commit [[https://git.thinkproject.com/projects/CS/repos/cs_code/commits/183486a275f5b345c241f17159d598cfcc6668e7][183486a275f]].
+
+- ~objects~: defined here as tables, indexes, functions, constraints.
+- ~state~: refers to the definitions of all ~objects~ relative to a given version.
+- ~version~: a record of a given ~state~ that incorporates time.
+
+*** Reproducibility
+*If you're following along inside emacs*, change the environment variables and
+just exec the ~src~ blocks
+*Otherwise*, copy out the command
+#+begin_src shell :session pg-deploy
+PG_INSTANCE='test928'
+alias pse="psql --host dbdeva --port 8432 -d cs_$PG_INSTANCE -U csmaster"
+# test pse
+pse -c 'select * from information_schema.tables limit 10'
+#+end_src
+
+** Context
+The goal is to observe a single source of truth for ~objects~, from which
+an arbitrary ~state~ of an instance can be generated.
+
+The current process of applying changes relies on scripts applied sequentially
+from ~db/changesets/~; this makes it difficult to reason about the ~state~ given,
+that their definition is sharded across an arbitrary number of scripts.
+
+To bootstrap the ~state~: clean rebuild the instance, deploy all ~changesets~,
+then extract the definitions for each ~object~ in the public schema with ~pg_dump~.
+
+#+begin_src shell :session pg_deploy
+pg_dump --host dbdeva --port 8432 --dbname "cs_$PG_INSTANCE" --user csmaster --schema-only --no-owner --no-privileges --table account_group
+
+pg_dump --host dbdeva --port 8432 --dbname "cs_$PG_INSTANCE" --user csmaster \
+  # dump only the object definitions (schema), not data.
+  --schema-only    \
+  # don't output commands to set ownership of objects to match the original database
+  --no-owner       \
+  # prevent dumping of access privileges (grant/revoke).
+  --no-priviledges \
+  # same rules apply as pg's \d
+  --table account_group
+
+#+end_src
+
+*** Challenges
+**** ~search_path~ >= 9.6
+When baselining, it's necessary to dump as ~desired~; from this dump, we can
+~pg_restore~ onto a target instance as ~desired~, then compute the diff and apply
+the deltas to ~public~ to match ~desired~. However, ~pg_dump~ from postgres
+>= 9.6 precludes the use of ~SET search_path TO foo_schema~:
+#+begin_src pgplsql
+CREATE SCHEMA desired;
+
+SET search_path TO desired;
+
+/* {... DUMP DDL ...} */
+#+end_src
+
+So, some text-processing is required to create the ~desired~ schema *in* the dump,
+OR, to fire a rename over the ~public~ schema prior to ~pg_dump~, and revert when
+finished:
+#+begin_src pgplsql
+ALTER SCHEMA public RENAME TO desired_state;
+#+end_src
+The reliance on a shell process here shouldn't be a problem, as we are already
+executing dump/restore from this context.
+
+
+
+** Application
+*** CONCAT all files
+** Rollback
+** Versioning
+** Testing
+
+https://github.com/thinkprojectgroup/query_cache
+
+
+alias pse="psql --host dbdeva --port 8432 -d cs_$PG_INSTANCE -U csdeploy"
+pse -c 'alter schema public RENAME desired'
+rm -rf pgd.sql && pg_dump --host dbdeva --port 8432 --dbname "cs_$PG_INSTANCE" --user csdeploy --schema-only --no-owner --no-privileges -t '*' > pgd.sql
+pse -c 'alter schema desired RENAME public'
