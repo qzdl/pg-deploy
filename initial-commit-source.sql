@@ -1,55 +1,52 @@
+--
+-- PostgreSQL database dump
+--
 
-/* reconsile for tables
+-- Dumped from database version 12.2 (Ubuntu 12.2-2.pgdg16.04+1)
+-- Dumped by pg_dump version 12.2 (Ubuntu 12.2-2.pgdg16.04+1)
 
-This function will run for each existing object
+SET statement_timeout = 0;
+SET lock_timeout = 0;
+SET idle_in_transaction_session_timeout = 0;
+SET client_encoding = 'UTF8';
+SET standard_conforming_strings = on;
+SELECT pg_catalog.set_config('search_path', '', false);
+SET check_function_bodies = false;
+SET xmloption = content;
+SET client_min_messages = warning;
+SET row_security = off;
 
+DROP FUNCTION IF EXISTS public.reconsile_desired(og_schema_name character varying, ds_schema_name character varying, object_name character varying);
+DROP EXTENSION IF EXISTS deploy_test;
+DROP SCHEMA IF EXISTS deploy_test;
+--
+-- Name: deploy_test; Type: SCHEMA; Schema: -; Owner: -
+--
 
-drop table if exists d0, d1;
-create table if not exists d0(a int, b text, c int, d int, e int);
-create table if not exists d1(a int, b text, g int);
-
-SELECT *
-FROM public.reconsile_desired('public', 'd0', 'desired', 'd1')
-
-;; =>
-ALTER TABLE public.d0 DROP COLUMN IF EXISTS c;
-ALTER TABLE public.d0 DROP COLUMN IF EXISTS d;
-ALTER TABLE public.d0 DROP COLUMN IF EXISTS e;
-ALTER TABLE public.d0 ADD COLUMN IF NOT EXISTS g int;
-
-
-========
-Room for improvement:
-- object_name must be the same between the two schemas; for the usecase, it doesn't
-  make sense to permit comparisons between arbitrary objects, *but*, the `sign_attr_rec'
-  query is capable of comparing arbitrary objects;
-- decoupling DROP / ADD
-    * In the case of data migration, it would pay to have an associative structure
-      that models the transition from state0->state1 & state1->state0:
-      s0 => t(a string)    ('1|2|3|4')
-      s1 => t(ab string[]) (['1', '2', '3', '4'])
-      tr (s0->s1) => split_string_to_array(a, '|')
-      tr (s1->s0) => join_array_to_string(a, '|')
-- currently operates for 'full' changes;
-  * once the structure of the function has
-    been realised, it would make sense to diff on the individual attributes between
-    existing columns.
-
-*/
+CREATE SCHEMA deploy_test;
 
 
-/* CREATE SCHEMA deploy_test; */
+--
+-- Name: deploy_test; Type: EXTENSION; Schema: -; Owner: -
+--
 
-CREATE TABLE IF NOT EXISTS deploy_test.test_reconsile(a int, b text, c int, d int, e int);
+CREATE EXTENSION IF NOT EXISTS deploy_test WITH SCHEMA deploy_test;
 
-/* Should be written as a pl script; decouple from instance, keep in repository */
-CREATE FUNCTION deploy_test.reconsile_desired(
-    og_schema_name character varying,
-    ds_schema_name character varying,
-    object_name character varying)
-    -- change `varying' to `name'? (ref existing object in db)
-RETURNS SETOF text AS
-$BODY$
+
+--
+-- Name: EXTENSION deploy_test; Type: COMMENT; Schema: -; Owner: -
+--
+
+COMMENT ON EXTENSION deploy_test IS 'A proof-of-concept to deploy a schema';
+
+
+--
+-- Name: reconsile_desired(character varying, character varying, character varying); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.reconsile_desired(og_schema_name character varying, ds_schema_name character varying, object_name character varying) RETURNS SETOF text
+    LANGUAGE plpgsql STABLE
+    AS $_$
 DECLARE
     table_oid text;
     sign_attr_rec record;
@@ -121,5 +118,26 @@ BEGIN
     -- return (sign | expr)
 
 END
-$BODY$
-    LANGUAGE plpgsql STABLE;
+$_$;
+
+
+SET default_tablespace = '';
+
+SET default_table_access_method = heap;
+
+--
+-- Name: my_table; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE IF NOT EXISTS public.my_table (
+    a integer,
+    b integer,
+    c integer,
+    g integer
+);
+
+
+--
+-- PostgreSQL database dump complete
+--
+
