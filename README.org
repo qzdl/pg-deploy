@@ -1,3 +1,5 @@
+#+COMMENT: export to markdown {C-c C-e m m}
+
 *  =DEPLOY_TEST=
 A proof-of-concept Postgres extension for maintaining database schemata, as an
 extension.
@@ -15,7 +17,7 @@ Advantages:
 - Single source of truth for all declarations and changes to schemata.
 - Automatic test generation for functional, structural, etc tests; using standard
   Postgres test framework.
-- Can be deployed and used on local instances.
+- Can be deployed and used on local instances and production instances alike.
 - Tests can be triggered by git hook.
 
 
@@ -80,10 +82,6 @@ This directory holds the sql scripts that generate the output for
 
 *** TODO [[file:expected/][expected/]]
 
-
-
-
-
 **  Troubleshooting
 *** ~installcheck~: ~psql: FATAL:  role "root" does not exist~
 By default, the user/role mapping will be used when attempting to establish a
@@ -98,10 +96,26 @@ To fix, supply the ~PGUSER~ environment variable to ~make~ with the ~-e~ option:
 sudo make installcheck -e PGUSER='<user>'
 #+end_src
 
-
 If you get an error regarding peer authentication, refer [[~installcheck~: ~psql:
 FATAL: Peer authentication failed for user "<USER>"~]]
 
 *** ~installcheck~: ~psql: FATAL:  Peer authentication failed for user "<USER>"~
 This error will likely arise when running ~make installcheck~ with supplying
 environment variable ~PGUSER~.
+
+The fix for this depends on the authentication configuration of the target instance;
+- ascertain how authentication is configured by finding ~pg_hba.conf~ -- this
+  can generally be found at ~/etc/postgresql/<VERSION>/main/pg_hba.conf~;
+  replace ~<VERSION>~ with the applicable version
+- either:
+  - change ~peer~ to ~md5~ or any other relevant auth method; ~md5~ allows for
+    pass-through auth from the user's UNIX login
+  - check your environment variables to ~make installlcheck~, and adjust the
+    parameters given to suit your auth config; e.g. ~PGPASSWORD~ as the
+    substitute for the connection parameter for ~password~
+- in any case, [[https://www.postgresql.org/docs/current/libpq-envars.html][RTFM]]
+
+
+Some useful links for troubleshooting this process:
+- [[https://www.postgresql.org/docs/12/auth-methods.html][PostgreSQL: Documentation: 12: 20.3. Authentication Methods]]
+- [[https://stackoverflow.com/questions/18664074/getting-error-peer-authentication-failed-for-user-postgres-when-trying-to-ge][postgresql - Getting error: Peer authentication failed for user "postgres", w...]]
