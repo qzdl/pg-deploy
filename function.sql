@@ -1,8 +1,8 @@
 CREATE FUNCTION public.reconsile_desired(
-    og_schema_name character varying,
+    og_schema_name character varying
     ds_schema_name character varying,
     object_name character varying)
-    -- change `varying' to `name'? (ref existing object in db)
+    -- FIXME: change `varying' to `name'? (ref existing object in db)
 RETURNS SETOF text AS
 $BODY$
 DECLARE
