@@ -40,7 +40,21 @@ not governed by the executing user.
 make install
 make installcheck -e PGPORT=YOUR_PG_PORT -e PGUSER=YOUR_PG_USER -e OTHERVAR=READ_THE_DOCS
 #+end_src
+#+RESULTS:
+/usr/lib/postgresql/10/lib/pgxs/src/makefiles/../../src/test/regress/pg_regress --inputdir=./ --bindir='/usr/lib/postgresql/10/bin'    --dbname=contrib_regression deploy_test
+(using postmaster on Unix socket, default port)
+============== dropping database "contrib_regression" ==============
+NOTICE:  database "contrib_regression" does not exist, skipping
+DROP DATABASE
+============== creating database "contrib_regression" ==============
+CREATE DATABASE
+ALTER DATABASE
+============== running regression test queries        ==============
+test deploy_test              ... ok
 
+=====================
+ All 1 tests passed.
+=====================
 
 ** Usage
 Prepare reference database (all changesets & scripts applied, etc).
@@ -102,17 +116,24 @@ FATAL: Peer authentication failed for user "<USER>"~]]
 *** ~installcheck~: ~psql: FATAL:  Peer authentication failed for user "<USER>"~
 This error will likely arise when running ~make installcheck~ with supplying
 environment variable ~PGUSER~.
-
 The fix for this depends on the authentication configuration of the target instance;
 - ascertain how authentication is configured by finding ~pg_hba.conf~ -- this
   can generally be found at ~/etc/postgresql/<VERSION>/main/pg_hba.conf~;
   replace ~<VERSION>~ with the applicable version
-- either:
-  - change ~peer~ to ~md5~ or any other relevant auth method; ~md5~ allows for
-    pass-through auth from the user's UNIX login
+- so, either:
+  - change local login (first entry) from ~peer~ to ~md5~ or any other relevant
+    auth method;
+    - ~md5~ allows for password auth from the user's UNIX login
+    - ~trust~ will just allow any arbitrary local connections
+      
   - check your environment variables to ~make installlcheck~, and adjust the
     parameters given to suit your auth config; e.g. ~PGPASSWORD~ as the
     substitute for the connection parameter for ~password~
+- if necessary, reload the server to apply the auth changes with the following
+  command
+  #+begin_src shell
+/etc/init.d/postgresql reload 
+  #+end_src
 - in any case, [[https://www.postgresql.org/docs/current/libpq-envars.html][RTFM]]
 
 

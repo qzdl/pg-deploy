@@ -1,5 +1,5 @@
 CREATE FUNCTION public.reconsile_desired(
-    og_schema_name character varying
+    og_schema_name character varying,
     ds_schema_name character varying,
     object_name character varying)
     -- FIXME: change `varying' to `name'? (ref existing object in db)
@@ -31,7 +31,8 @@ BEGIN
 
     FOR sign_attr_rec IN
         -- compute diff for og->ds
-        select 'DROP' as sign, r_source.column_name as col
+        select 'DROP' as sign,
+               r_source.column_name as col
         from information_schema.columns as r_source
         where table_name = object_name  -- to yield d0
           and table_schema = og_schema_name
@@ -42,7 +43,8 @@ BEGIN
               and r_target.table_schema = ds_schema_name
               and r_source.column_name = r_target.column_name) -- AJ predicate
         union -- inverse for `ADD'
-        select 'ADD' as sign, a_target.column_name as col
+        select 'ADD' as sign,
+               a_target.column_name as col
         from information_schema.columns as a_target
         where table_name = object_name       -- to yield d1
           and table_schema = ds_schema_name
@@ -71,7 +73,7 @@ BEGIN
     /*
             TODO
     */
-    -- collect ADD
+    -- collect ADDq
 
     -- return (sign | expr)
 

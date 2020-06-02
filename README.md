@@ -1,21 +1,21 @@
 
 # Table of Contents
 
-1.  [`DEPLOY_TEST`](#org3349ebe)
-    1.  [Workflow](#org4edd640)
-        1.  [Extension Install](#org1c2ba86)
-    2.  [Usage](#org7a947c4)
-    3.  [Deploy/Rollback](#org1c4e810)
-    4.  [Project Structure](#org4976d81)
-        1.  [sql/](#org792469d)
-        2.  [expected/](#org47dbd8c)
-    5.  [Troubleshooting](#orgb632576)
-        1.  [`installcheck`: `psql: FATAL:  role "root" does not exist`](#org990955a)
-        2.  [`installcheck`: `psql: FATAL:  Peer authentication failed for user "<USER>"`](#org96835ff)
+1.  [`DEPLOY_TEST`](#org757db1b)
+    1.  [Workflow](#org30bf2dc)
+        1.  [Extension Install](#org82aaf99)
+    2.  [Usage](#orga57ddd9)
+    3.  [Deploy/Rollback](#org9d415b0)
+    4.  [Project Structure](#org9c1e0fe)
+        1.  [sql/](#org6513172)
+        2.  [expected/](#orga8d4880)
+    5.  [Troubleshooting](#org55c182b)
+        1.  [`installcheck`: `psql: FATAL:  role "root" does not exist`](#orge6f3ef8)
+        2.  [`installcheck`: `psql: FATAL:  Peer authentication failed for user "<USER>"`](#org1e98693)
 
 
 
-<a id="org3349ebe"></a>
+<a id="org757db1b"></a>
 
 # `DEPLOY_TEST`
 
@@ -40,12 +40,12 @@ Advantages:
 -   Tests can be triggered by git hook.
 
 
-<a id="org4edd640"></a>
+<a id="org30bf2dc"></a>
 
 ## Workflow
 
 
-<a id="org1c2ba86"></a>
+<a id="org82aaf99"></a>
 
 ### Extension Install
 
@@ -65,8 +65,23 @@ not governed by the executing user.
     make install
     make installcheck -e PGPORT=YOUR_PG_PORT -e PGUSER=YOUR_PG_USER -e OTHERVAR=READ_THE_DOCS
 
+*usr/lib/postgresql/10/lib/pgxs/src/makefiles*../../src/test/regress/pg<sub>regress</sub> &#x2013;inputdir=./ &#x2013;bindir=&rsquo;/usr/lib/postgresql/10/bin&rsquo;    &#x2013;dbname=contrib<sub>regression</sub> deploy<sub>test</sub>
+(using postmaster on Unix socket, default port)
+`============` dropping database &ldquo;contrib<sub>regression</sub>&rdquo; `============`
+NOTICE:  database &ldquo;contrib<sub>regression</sub>&rdquo; does not exist, skipping
+DROP DATABASE
+`============` creating database &ldquo;contrib<sub>regression</sub>&rdquo; `============`
+CREATE DATABASE
+ALTER DATABASE
+`============` running regression test queries        `============`
+test deploy<sub>test</sub>              &#x2026; ok
 
-<a id="org7a947c4"></a>
+`===================`
+ All 1 tests passed. 
+`===================`
+
+
+<a id="orga57ddd9"></a>
 
 ## Usage
 
@@ -101,36 +116,36 @@ NOTE: If structural changes against the **current** version exist in the databas
       can be followed to get a new baseline.
 
 
-<a id="org1c4e810"></a>
+<a id="org9d415b0"></a>
 
 ## TODO Deploy/Rollback
 
 The procedure
 
 
-<a id="org4976d81"></a>
+<a id="org9c1e0fe"></a>
 
 ## TODO Project Structure
 
 
-<a id="org792469d"></a>
+<a id="org6513172"></a>
 
 ### [sql/](sql/)
 
 This directory holds the sql scripts that generate the output for
 
 
-<a id="org47dbd8c"></a>
+<a id="orga8d4880"></a>
 
 ### TODO [expected/](expected/)
 
 
-<a id="orgb632576"></a>
+<a id="org55c182b"></a>
 
 ## Troubleshooting
 
 
-<a id="org990955a"></a>
+<a id="orge6f3ef8"></a>
 
 ### `installcheck`: `psql: FATAL:  role "root" does not exist`
 
@@ -145,27 +160,33 @@ To fix, supply the `PGUSER` environment variable to `make` with the `-e` option:
 
     sudo make installcheck -e PGUSER='<user>'
 
-If you get an error regarding peer authentication, refer [1.5.2](#org96835ff)
+If you get an error regarding peer authentication, refer [1.5.2](#org1e98693)
 
 
-<a id="org96835ff"></a>
+<a id="org1e98693"></a>
 
 ### `installcheck`: `psql: FATAL:  Peer authentication failed for user "<USER>"`
 
 This error will likely arise when running `make installcheck` with supplying
 environment variable `PGUSER`.
-
 The fix for this depends on the authentication configuration of the target instance;
 
 -   ascertain how authentication is configured by finding `pg_hba.conf` &#x2013; this
     can generally be found at `/etc/postgresql/<VERSION>/main/pg_hba.conf`;
     replace `<VERSION>` with the applicable version
--   either:
-    -   change `peer` to `md5` or any other relevant auth method; `md5` allows for
-        pass-through auth from the user&rsquo;s UNIX login
+-   so, either:
+    -   change local login (first entry) from `peer` to `md5` or any other relevant
+        auth method;
+        -   `md5` allows for password auth from the user&rsquo;s UNIX login
+        -   `trust` will just allow any arbitrary local connections
+    
     -   check your environment variables to `make installlcheck`, and adjust the
         parameters given to suit your auth config; e.g. `PGPASSWORD` as the
         substitute for the connection parameter for `password`
+-   if necessary, reload the server to apply the auth changes with the following
+    command
+    
+        /etc/init.d/postgresql reload
 -   in any case, [RTFM](https://www.postgresql.org/docs/current/libpq-envars.html)
 
 Some useful links for troubleshooting this process:
