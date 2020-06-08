@@ -25,7 +25,8 @@ DROP / RECREATE FUNCTION AT  %
 
     select into func (select file.read(rdir||'function.sql'));
 
-raise notice '%', func;
+    -- print definition from file
+    raise notice '%', func;
 
 execute func;
 
@@ -40,14 +41,20 @@ END $$;
 -- check what exists
 \df public.*;
 
+-- prep environment for diff
 create schema if not exists testr;
 create schema if not exists testp;
 drop table if exists testr.a;
 drop table if exists testp.a;
 
+-- create objs for diff
 create table testr.a(i int, ii text, iii bit);
 create table testp.a(ii text, iv text);
 
+-- expecting:
+-- DROP i
+-- DROP iii
+-- ADD iv text
 select public.reconsile_desired('testr', 'testp', 'a');
 
 

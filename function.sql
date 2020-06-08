@@ -76,7 +76,7 @@ BEGIN
                 e.max_attnum as max_attnum
             FROM
                 pg_catalog.pg_attribute a
-                LEFT JOIN signs ON a.attname = signs.col AND signs.sign = 'ADD'
+                LEFT JOIN signs ON a.attname = signs.col
                 INNER JOIN
                  (SELECT c.oid,
                     n.nspname,
@@ -99,6 +99,7 @@ BEGIN
                 ON a.attrelid=e.attrelid
             WHERE a.attnum > 0
               AND NOT a.attisdropped
+            AND signs.sign IS NOT NULL
             ORDER BY a.attnum
         LOOP -- _columns
             IF _columns.sign = 'DROP' THEN
