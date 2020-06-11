@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 echo "Installing deploy_test v$(cat ./VERSION)..."
 make install
 
@@ -9,5 +10,3 @@ make installcheck
 cp results/deploy_test.out expected/deploy_test.out
 
 make installcheck
-
-

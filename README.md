@@ -19,33 +19,34 @@
 
 # `DEPLOY_TEST`
 
-A proof-of-concept Postgres extension for maintaining database schemata, as an
-extension.
+Postgres extension for maintaining database schemata using git.
 
-The general process of taking the objects in a database to a new version
 
 Advantages:
 
--   Proper version control
-    -   Deployment by commit, or by tag; e.g. hotfix
-    -   Flexible to the semantic versioning scheme relevant to the project.
--   Code generation based on the differences between objects
-    -   This applies for rollback, between versions, or arbitary &rsquo;dirty&rsquo; states
-        (e.g at development time)
-    -   catalog tables contian the necessary information to &rsquo;diff&rsquo;
--   Single source of truth for all declarations and changes to schemata.
+-  Benefits of git
+    - Proper version control with rollback
+    - Deployment by commit, by tag or as your semantic versioning scheme requires
+    - Tests, deployment can be triggered by git hook etc
+-   Single source of truth for all declarations and changes to schemata
 -   Automatic test generation for functional, structural, etc tests; using standard
     Postgres test framework.
--   Can be deployed and used on local instances and production instances alike.
--   Tests can be triggered by git hook.
 
+How it works - some theory:
+
+The definition of the database object describe the state of the database in regard its structure. This state is defined by
+a set of CREATE statements. A change in this definition results in a new state, that is also a set
+of create statements. We can establish the differences between the two states with the help of the
+PostgreSQL catalog tables and we can generate SQL code that can transform one state into an other.
+With other workd: if we create a schema using the current state - new_schema - and using the previous
+state - old_schema - in a running database. Then the main function of the extension calculates the
+differences between the two schemas and generates an SQL code. This code can transform old_schema
+into the new_schema. The code generation based on the differences between objects, regardless if that is a new commit
+or a rollback, only the direction of transformation must be defined:
+If the new_schema has a new table then the table declaration must be calculated and applied to the old_schema.
+The other direction would be a DROP statement that removes the excess table.
 
 <a id="org30bf2dc"></a>
-
-## Workflow
-
-
-<a id="org82aaf99"></a>
 
 ### Extension Install
 
@@ -77,32 +78,43 @@ ALTER DATABASE
 test deploy<sub>test</sub>              &#x2026; ok
 
 `===================`
- All 1 tests passed. 
+ All 1 tests passed.
 `===================`
 
 
 <a id="orga57ddd9"></a>
 
+## Workflow
+
+
+<a id="org82aaf99"></a>
+
 ## Usage
 
-Prepare reference database (all changesets & scripts applied, etc).
+### Preparation
 
-Dump the current state of the database; this is the base for the initial commit.
+-   Install the extension
+-   Prepare reference database. This database will be used to calculate the differences between the states (commits)
+-   Set the proper permissions, so that the user who connects to the database can create schema.
 
--   The `--clean` option to `pg_dump` will generate a `DROP` statement for each
-    object:
+### First commit
 
-    pg_dump --host localhost --port 8432 --dbname "something" --user postgres \
-      --schema-only --no-owner --no-privileges  --clean --if-exists \
-      | sed -e 's/CREATE TABLE/CREATE TABLE IF NOT EXISTS/g' \
-      | grep -v DROP.TABLE > initial-commit-source.sql
+-   Create a git repository for your object declarations (tables, procedures, ect.)
+    , that you want to keep in the version controll system.
+-   pg_dump the schema so that you can restore it.
+-   Use this dump as the base of your initial commit, adjust it according to your needs.
+-   Make the initial commit.
+-   Any change in the object definitions are simply modifications of the definition as if the object would be newly created.
+    Any object deletion is a deletion in the file.
 
--   Adjust the newly created [initial-commit-source.sql](initial-commit-source.sql) according to your needs.
 
--   Create the test suite in [sql/](sql/) as demonstrated.
 
+
+## For Developers
+
+-   
 -   Run the tests, with copy step to expected
-    
+
         make install
         make installcheck -e PGPORT=YOUR_PG_PORT -e PGUSER=YOUR_PG_USER -e OTHERVAR=READ_THE_DOCS
         cp results/deploy_test.out expected/deploy_test.out
@@ -120,11 +132,12 @@ NOTE: If structural changes against the **current** version exist in the databas
 
 ## TODO Deploy/Rollback
 
-The procedure
+Same as with a new commit. Do your rollback in your repository and generate the delta file to deploy.
 
 
 <a id="org9c1e0fe"></a>
 
+### SHORTER
 ## TODO Project Structure
 
 
@@ -142,7 +155,9 @@ This directory holds the sql scripts that generate the output for
 
 <a id="org55c182b"></a>
 
-## Troubleshooting
+###
+
+## Troubleshooting during installation
 
 
 <a id="orge6f3ef8"></a>
@@ -179,13 +194,13 @@ The fix for this depends on the authentication configuration of the target insta
         auth method;
         -   `md5` allows for password auth from the user&rsquo;s UNIX login
         -   `trust` will just allow any arbitrary local connections
-    
+
     -   check your environment variables to `make installlcheck`, and adjust the
         parameters given to suit your auth config; e.g. `PGPASSWORD` as the
         substitute for the connection parameter for `password`
 -   if necessary, reload the server to apply the auth changes with the following
     command
-    
+
         /etc/init.d/postgresql reload
 -   in any case, [RTFM](https://www.postgresql.org/docs/current/libpq-envars.html)
 
@@ -193,4 +208,3 @@ Some useful links for troubleshooting this process:
 
 -   [PostgreSQL: Documentation: 12: 20.3. Authentication Methods](https://www.postgresql.org/docs/12/auth-methods.html)
 -   [postgresql - Getting error: Peer authentication failed for user &ldquo;postgres&rdquo;, w&#x2026;](https://stackoverflow.com/questions/18664074/getting-error-peer-authentication-failed-for-user-postgres-when-trying-to-ge)
-
