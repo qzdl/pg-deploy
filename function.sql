@@ -1,3 +1,9 @@
+drop FUNCTION if exists public.reconsile_desired(
+    source_schema text,
+    target_schema text,
+    object_name text
+);
+
 CREATE FUNCTION public.reconsile_desired(
     source_schema text,
     target_schema text,
@@ -13,13 +19,17 @@ DECLARE
 BEGIN
     -- restrict to operational tables
     FOR _tables IN
-        SELECT c.relname, c.oid FROM pg_catalog.pg_class c
+        SELECT c.relname, c.oid, n.nspname FROM pg_catalog.pg_class c
             LEFT JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
         WHERE relkind = 'r'
             AND (n.nspname = target_schema OR n.nspname = source_schema)
             AND relname~ ('^('||object_name||')$')
         ORDER BY c.relname
     LOOP -- _tables
+        RAISE NOTICE '
+
+OPERATING FOR TABLE [schema.rel] :: %', _tables.nspname||'.'||_tables.relname;
+        
         -- get column info (name, type, NULL, constraints, defaults)
         FOR _columns IN
         -- compute diff for source->target
@@ -102,18 +112,40 @@ BEGIN
             AND signs.sign IS NOT NULL
             ORDER BY a.attnum
         LOOP -- _columns
+            RAISE NOTICE '
+COLUMN: %', _columns.sign;
             IF _columns.sign = 'DROP' THEN
-                RAISE NOTICE 'DROP for column %', _columns;
-                col_ddl := 'ALTER TABLE '||source_schema||'.'||object_name||' DROP COLUMN '||_columns.col||';';
+                col_ddl := 'ALTER TABLE '||source_schema||'.'||object_name||' DROP COLUMN '||_columns.col;
             ELSE
-                RAISE NOTICE 'ADD for column %', _columns;
                 SELECT INTO col_ddl
                 'ALTER TABLE '||source_schema||'.'||object_name||' '
                 ||'ADD COLUMN '||_columns.col||' '||_columns.column_type||' '
                 ||_columns.column_default_value||' '||_columns.column_not_null;
             END IF;
-              RETURN NEXT col_ddl;
+            col_ddl := col_ddl||';';
+            RETURN NEXT col_ddl;
         END LOOP; -- _columns
+
+        -- -- _constraints, added at the end, also requires a diff
+        FOR _constraints IN
+            RAISE NOTICE
+            SELECT conname, pg_get_constraintdef(c.oid) as constrainddef
+            FROM pg_constraint c
+            WHERE conrelid=(
+                  SELECT attrelid FROM pg_attribute
+                  WHERE attrelid = (
+                      SELECT oid FROM pg_class
+                      WHERE relname = _tables.relname
+                        AND relnamespace = (SELECT ns.oid FROM pg_namespace ns WHERE ns.nspname = target_schema)
+                  ) AND attname='tableoid'
+            )
+        LOOP
+            RAISE NOTICE 'CONSTRAINT FOR %', _constraints.conname;
+             SELECT INTO col_ddl
+                'CONSTRAINT '||_constraints.conname||' '||_constraints.constrainddef;
+              RETURN NEXT col_ddl; -- constraint return; returns less
+        END LOOP; -- _constraints
+       RAISE NOTICE 'return next %', col_ddl;
 
     END LOOP; -- _tables
 END
