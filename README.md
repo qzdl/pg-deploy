@@ -95,32 +95,44 @@ test deploy<sub>test</sub>              &#x2026; ok
 
 -   Install the extension
 -   Prepare reference database. This database will be used to calculate the differences between the states (commits)
--   Set the proper permissions, so that the user who connects to the database can create schema.
+    but shall not have any user schema defined. (Must be blank.)
+-   Set the proper permissions, so that the user who connects to the database in the context of this Extension
+    can create schema.
+-   Create the extension for the database.
 
 ### First commit
 
 -   Create a git repository for your object declarations (tables, procedures, ect.)
     , that you want to keep in the version controll system.
 -   pg_dump the schema so that you can restore it.
--   Use this dump as the base of your initial commit, adjust it according to your needs.
--   Make the initial commit.
--   Any change in the object definitions are simply modifications of the definition as if the object would be newly created.
-    Any object deletion is a deletion in the file.
+-   Use this dump as the base of your initial commit, adjust it according to your needs and commit it.
 
+### Further changes and rollbacks
+-   Make your changes. Any change in the object definitions are simply modifications of the definition
+    as if the object would be newly created. Any object deletion is a deletion in the file.
+-   To prepare the reference database so, that your target state goes into one schema and the current goes into an other.
+-   Call the extension's main function. If the reconciliation is successful, the return value is an SQL file that can be
+    used to create the state transition. Deploy it as usual and apply it to the database.
 
+Note: For an example check the DEV/reconcile.sh script.
 
 
 ## For Developers
 
--   
--   Run the tests, with copy step to expected
+### Testing - standard PostgreSQL test
 
-        make install
-        make installcheck -e PGPORT=YOUR_PG_PORT -e PGUSER=YOUR_PG_USER -e OTHERVAR=READ_THE_DOCS
-        cp results/deploy_test.out expected/deploy_test.out
-        make installcheck -e PGPORT=YOUR_PG_PORT -e PGUSER=YOUR_PG_USER -e OTHERVAR=READ_THE_DOCS
+The extension has standard PostgreSQL unit tests.
 
--   Save the state (e.g. git commit / tag) if tests pass.
+### Integration tests
+
+The integration tests simulate a real environment and the workflow.
+
+-   The preparatory steps are as described in the Usage section for end users.
+-   The two states used for development are the DEV/XXX_a.sql and DEV/XXX_b.sql files.
+    These files serve for testing and to be modified only when new test case or edge case is implemented.
+-   The developer executes the helper script DEV/YYY.sh in order to get his test results. The scripts generates
+    and applies the diff rules to transform state A to and from state B.
+
 
 NOTE: If structural changes against the **current** version exist in the database,
       it should be possible to write the version held by the extension to a new
@@ -128,32 +140,13 @@ NOTE: If structural changes against the **current** version exist in the databas
       can be followed to get a new baseline.
 
 
-<a id="org9d415b0"></a>
-
-## TODO Deploy/Rollback
-
-Same as with a new commit. Do your rollback in your repository and generate the delta file to deploy.
-
-
-<a id="org9c1e0fe"></a>
-
-### SHORTER
-## TODO Project Structure
-
-
-<a id="org6513172"></a>
-
-### [sql/](sql/)
-
-This directory holds the sql scripts that generate the output for
-
-
-<a id="orga8d4880"></a>
 
 ### TODO [expected/](expected/)
 
+- create the DEV/XXX_a.sql and DEV/XXX_b.sql and the DEV/YYY.sh for integration test
+- create the DEV/reconcile.sh as an example. (That may work on the current repository on the DEV/XXX_a.sql states? )
 
-<a id="org55c182b"></a>
+
 
 ###
 
