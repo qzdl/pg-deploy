@@ -1,13 +1,15 @@
-drop FUNCTION if exists public.reconsile_desired(
+drop FUNCTION if exists deploy.reconsile_desired(
     source_schema text,
     target_schema text,
-    object_name text
+    source_rel text,
+    target_rel text
 );
 
-CREATE FUNCTION public.reconsile_desired(
+CREATE FUNCTION deploy.reconsile_tables(
     source_schema text,
     target_schema text,
-    object_name text
+    source_rel text,
+    target_rel text
 )
 RETURNS SETOF text AS
 $BODY$
@@ -17,7 +19,7 @@ DECLARE
     _columns record;
     _constraints record;
 BEGIN
-    -- restrict to operational tables
+    -- safety checks; restrict to operational tables
     FOR _tables IN
         SELECT c.relname, c.oid, n.nspname FROM pg_catalog.pg_class c
             LEFT JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
@@ -126,28 +128,6 @@ COLUMN: %', _columns.sign;
             col_ddl := col_ddl||';';
             RETURN NEXT col_ddl;
         END LOOP; -- _columns
-
-        -- _constraints, added at the end, also requires a diff
-        FOR _constraints IN
-            RAISE NOTICE
-            SELECT conname, pg_get_constraintdef(c.oid) as constrainddef
-            FROM pg_constraint c
-            WHERE conrelid=(
-                  SELECT attrelid FROM pg_attribute
-                  WHERE attrelid = (
-                      SELECT oid FROM pg_class
-                      WHERE relname = _tables.relname
-                        AND relnamespace = (SELECT ns.oid FROM pg_namespace ns WHERE ns.nspname = target_schema)
-                  ) AND attname='tableoid'
-            )
-        LOOP
-            RAISE NOTICE 'CONSTRAINT FOR %', _constraints.conname;
-             SELECT INTO col_ddl
-                'CONSTRAINT '||_constraints.conname||' '||_constraints.constrainddef;
-              RETURN NEXT col_ddl; -- constraint return; returns less
-        END LOOP; -- _constraints
-       RAISE NOTICE 'return next %', col_ddl;
-
     END LOOP; -- _tables
 END
 $BODY$

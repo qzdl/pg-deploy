@@ -37,7 +37,7 @@ COMPLETED at %
 
 END $$;
 
-4-- now we can make stuff and test whatever
+-- now we can make stuff and test whatever
 -- check what exists
 \df PUBLIC.*;
 

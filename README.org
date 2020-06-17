@@ -90,12 +90,6 @@ NOTE: If structural changes against the *current* version exist in the database,
 
 ** TODO Deploy/Rollback
 The procedure
-** TODO Project Structure
-*** [[file:sql/][sql/]]
-This directory holds the sql scripts that generate the output for
-
-*** TODO [[file:expected/][expected/]]
-
 **  Troubleshooting
 *** ~installcheck~: ~psql: FATAL:  role "root" does not exist~
 By default, the user/role mapping will be used when attempting to establish a
