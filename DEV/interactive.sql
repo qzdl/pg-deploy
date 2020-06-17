@@ -37,7 +37,7 @@ COMPLETED at %
 
 END $$;
 
--- now we can make stuff and test whatever
+4-- now we can make stuff and test whatever
 -- check what exists
 \df PUBLIC.*;
 
@@ -51,6 +51,8 @@ DROP TABLE if EXISTS testp.a;
 CREATE TABLE testr.a(i int, ii text, iii bit);
 CREATE TABLE testp.a(ii text, iv numeric CONSTRAINT positive_price CHECK (iv > 0));
 
+
+CREATE TABLE testr.b(ii text);
 -- expecting:
 -- DROP i
 -- DROP iii

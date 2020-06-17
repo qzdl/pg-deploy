@@ -33,6 +33,7 @@ OPERATING FOR TABLE [schema.rel] :: %', _tables.nspname||'.'||_tables.relname;
         -- get column info (name, type, NULL, constraints, defaults)
         FOR _columns IN
         -- compute diff for source->target
+        -- FIXME: potential optimisation (information_schema -> raw catalog)
             with signs as (
                 select 'DROP' as sign,
                        r_source.column_name as col
@@ -126,7 +127,7 @@ COLUMN: %', _columns.sign;
             RETURN NEXT col_ddl;
         END LOOP; -- _columns
 
-        -- -- _constraints, added at the end, also requires a diff
+        -- _constraints, added at the end, also requires a diff
         FOR _constraints IN
             RAISE NOTICE
             SELECT conname, pg_get_constraintdef(c.oid) as constrainddef
