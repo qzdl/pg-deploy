@@ -1,4 +1,4 @@
-drop FUNCTION if exists deploy.reconsile_desired(
+drop FUNCTION if exists deploy.reconsile_tables
     source_schema text,
     target_schema text,
     source_rel text,
@@ -36,6 +36,7 @@ OPERATING FOR TABLE [schema.rel] :: %', _tables.nspname||'.'||_tables.relname;
         FOR _columns IN
         -- compute diff for source->target
         -- FIXME: potential optimisation (information_schema -> raw catalog)
+        -- FIXME: antijoin diff  can be tidied up by passing oids in
             with signs as (
                 select 'DROP' as sign,
                        r_source.column_name as col

@@ -45,8 +45,7 @@ BEGIN
     LOOP
         RAISE NOTICE '_tables: %', _tables;
         SELECT INTO ddl
-            SELECT public.reconsile_desired(
-                rel.s_schema, rel.s_relname, rel.t_schema, rel.t_relname);
+            SELECT public.reconsile_tables(rel.s_schema, rel.s_relname, rel.t_schema, rel.t_relname);
         RETURN NEXT dll;
     END LOOP;
 
@@ -56,8 +55,10 @@ BEGIN
     LOOP
         RAISE NOTICE '_constraints: %', _tables; -- FIXME: probably worth burying in `reconsile_constraints`
         SELECT INTO ddl
-            SELECT deploy.reconcile_constraints
-                rel.s_schema, rel.s_relname, rel.t_schema, rel.t_relname);
+            SELECT deploy.reconcile_constraints(
+            rel.s_schema, rel.s_relname, rel.s_oid,
+            rel.t_schema, rel.t_relname, rel.t_oid);
+
         RETURN NEXT dll;
     END LOOP;
 
