@@ -8,6 +8,7 @@ $BODY$
 DECLARE
     ddl text;
     _tables record;
+    _functions record;
 BEGIN
     -- preparations
     ---------------
@@ -39,36 +40,61 @@ BEGIN
     ) as target ON active.relname = target.relname
 
 
-    -- tables
-    ---------
-    FOR rel IN _tables
+    -- indices
+    ----------
+
+  -- functions / triggers
+    -----------------------
+    FOR _function IN
+        SELECT quote_ident(n.nspname) as schema,
+               quote_ident(p.proname) as function,
+               p.oid
+        FROM pg_catalog.pg_proc p
+            JOIN pg_catalog.pg_namespace n
+            ON n.oid = p.pronamespace
+        WHERE n.nspname not like 'pg%'
+          AND n.nspname <> 'information_schema'
     LOOP
-        RAISE NOTICE '_tables: %', _tables;
-        SELECT INTO ddl
-            SELECT public.reconsile_tables(rel.s_schema, rel.s_relname, rel.t_schema, rel.t_relname);
-        RETURN NEXT dll;
+        RAISE NOTICE '_function: %', _function;
     END LOOP;
 
     -- constraints
     --------------
     FOR rel IN _tables
     LOOP
-        RAISE NOTICE '_constraints: %', _tables; -- FIXME: probably worth burying in `reconsile_constraints`
+        RAISE NOTICE '_constraints: %', rel; -- FIXME: probably worth burying in `reconsile_constraints`
         SELECT INTO ddl
             SELECT deploy.reconcile_constraints(
-            rel.s_schema, rel.s_relname, rel.s_oid,
-            rel.t_schema, rel.t_relname, rel.t_oid);
-
+                rel.s_schema, rel.s_relname, rel.s_oid,
+                rel.t_schema, rel.t_relname, rel.t_oid);
         RETURN NEXT dll;
     END LOOP;
 
-    -- indices
-    ----------
 
 
-    -- functions / triggers
-    -----------------------
-    
+    -- tables
+    ---------
+    FOR rel IN _tables
+    LOOP
+        RAISE NOTICE '_tables: %', rel;
+        SELECT INTO ddln
+            SELECT deploy.reconcile_tables(
+                rel.s_schema, rel.s_relname, rel.t_schema, rel.t_relname);
+        RETURN NEXT dll;
+    END LOOP;
+
+-- https://www.postgresql.org/docs/current/functions-info.html
+
+
+
+    select pg_get_functiondef(oid)
+    from pg_proc
+    where proname = 'reconcile_tables'
+
+
+
+
+
 END
 $BODY$
     LANGUAGE plpgsql STABLE;
