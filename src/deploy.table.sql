@@ -1,11 +1,11 @@
-drop FUNCTION if exists deploy.reconsile_tables
+drop FUNCTION if exists deploy.reconcile_tables (
     source_schema text,
     target_schema text,
     source_rel text,
     target_rel text
 );
 
-CREATE FUNCTION deploy.reconsile_tables(
+CREATE FUNCTION deploy.reconcile_tables(
     source_schema text,
     target_schema text,
     source_rel text,
@@ -17,7 +17,6 @@ DECLARE
     col_ddl text;
     _tables record;
     _columns record;
-    _constraints record;
 BEGIN
     -- safety checks; restrict to operational tables
     FOR _tables IN
@@ -25,7 +24,7 @@ BEGIN
             LEFT JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
         WHERE relkind = 'r'
             AND (n.nspname = target_schema OR n.nspname = source_schema)
-            AND relname~ ('^('||object_name||')$')
+            --AND relname~ ('^('||source_rel||')$')
         ORDER BY c.relname
     LOOP -- _tables
         RAISE NOTICE '
@@ -41,24 +40,24 @@ OPERATING FOR TABLE [schema.rel] :: %', _tables.nspname||'.'||_tables.relname;
                 select 'DROP' as sign,
                        r_source.column_name as col
                 from information_schema.columns as r_source
-                where table_name = object_name  -- to yield d0
+                where table_name = source_rel  -- to yield d0
                   and table_schema = source_schema
                   and not exists (
                     select column_name
                     from information_schema.columns as r_target
-                    where r_target.table_name = object_name
+                    where r_target.table_name = target_rel
                       and r_target.table_schema = target_schema
                       and r_source.column_name = r_target.column_name) -- AJ predicate
                 union -- inverse for `ADD'
                 select 'ADD' as sign,
                        a_target.column_name as col
                 from information_schema.columns as a_target
-                where table_name = object_name       -- to yield d1
+                where table_name = target_rel       -- to yield d1
                   and table_schema = target_schema
                   and not exists (
                     select column_name
                     from information_schema.columns as a_source
-                    where a_source.table_name = object_name
+                    where a_source.table_name = source_rel
                       and a_source.table_schema = source_schema
                       and a_source.column_name = a_target.column_name) -- AJ predicate
             )
@@ -116,13 +115,13 @@ OPERATING FOR TABLE [schema.rel] :: %', _tables.nspname||'.'||_tables.relname;
             AND signs.sign IS NOT NULL
             ORDER BY a.attnum
         LOOP -- _columns
-            RAISE NOTICE '
-COLUMN: %', _columns.sign;
+            RAISE NOTICE 'COLUMN: %', _columns.sign;
+
             IF _columns.sign = 'DROP' THEN
-                col_ddl := 'ALTER TABLE '||source_schema||'.'||object_name||' DROP COLUMN '||_columns.col;
+                col_ddl := 'ALTER TABLE '||source_schema||'.'||source_rel||' DROP COLUMN '||_columns.col;
             ELSE
                 SELECT INTO col_ddl
-                'ALTER TABLE '||source_schema||'.'||object_name||' '
+                'ALTER TABLE '||source_schema||'.'||source_rel||' '
                 ||'ADD COLUMN '||_columns.col||' '||_columns.column_type||' '
                 ||_columns.column_default_value||' '||_columns.column_not_null;
             END IF;

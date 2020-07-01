@@ -1,18 +1,24 @@
 CREATE SCHEMA IF NOT EXISTS deploy;
 
-CREATE OR REPLACE FUNCTION deploy.reconcile_database(
+DROP FUNCTION IF EXISTS deploy.reconcile_schema(
+    source_schema text, target_schema text);
+
+CREATE OR REPLACE FUNCTION deploy.reconcile_schema(
     source_schema text, target_schema text)
 RETURNS SETOF text AS
 $BODY$
 DECLARE
     _table record;
     _function record;
+    ddl text;
 BEGIN
     -- preparations
     ---------------
-    CREATE TEMP TABLE rank_ddl (rank smallint, ddl text);
+    --------------- FIXME: create & modify distinct attrs. 
+
 
     -- table actions
+    -- FIXME: covering NULLS from LEFT and RIGHT
     FOR _table IN
         WITH candidates as (
             SELECT c.relname, c.oid, n.nspname
@@ -35,22 +41,26 @@ BEGIN
             SELECT nspname, relname, oid
             FROM candidates
             WHERE nspname = source_schema
-        ) as active
+        ) AS active
         LEFT JOIN (
             SELECT nspname, relname, oid
             FROM candidates
             WHERE nspname = target_schema
-        ) as target
+        ) AS target
         ON active.relname = target.relname
     LOOP
         RAISE NOTICE '_table: %', _table;
 
-        INSERT INTO rank_ddl
-        SELECT
-            1,
-            deploy.reconcile_constraints(
+        SELECT INTO ddl
+            (SELECT
+                deploy.reconcile_constraints(
                _table.s_schema, _table.s_relname, _table.s_oid::integer,
-               _table.t_schema, _table.t_relname, _table.t_oid::integer);
+               _table.t_schema, _table.t_relname, _table.t_oid::integer)
+            UNION SELECT
+            deploy.reconcile_tables(
+                _table.s_schema::text, _table.s_relname::text,
+                _table.t_schema::text, _table.t_relname::text));
+        return next ddl;
     END LOOP;
 
     -- indices
@@ -75,34 +85,19 @@ BEGIN
     --     RAISE NOTICE '_function: %', _function;
     -- END LOOP;
 
-    -- -- constraints
-    -- --------------
-    -- FOR rel IN _tables
-    -- LOOP
-    --     RAISE NOTICE '_constraints: %', rel; -- FIXME: probably worth burying in `reconsile_constraints`
-    --     SELECT INTO rank_ddl
-    --
-    --         SELECT 1, deploy.reconcile_constraints(
-    --             rel.s_schema, rel.s_relname, rel.s_oid,
-    --             rel.t_schema, rel.t_relname, rel.t_oid);
-    --     RETURN NEXT dll;
-    -- END LOOP;
 
     -- -- tables
     -- ---------
     -- FOR rel IN _tables
     -- LOOP
     --     RAISE NOTICE '_tables: %', rel;
-    --     SELECT INTO ddln
-    --         SELECT deploy.reconcile_tables(
-    --             rel.s_schema, rel.s_relname, rel.t_schema, rel.t_relname);
-    --     RETURN NEXT dll;
+
     -- END LOOP;
 
 -- https://www.postgresql.org/docs/current/functions-info.html
 
-   RAISE NOTICE 'RANK_DDL: %', (select ddl from rank_ddl);
-   DROP TABLE rank_ddl;
-END
+   RAISE NOTICE 'ORDER_DDL: %', ddl;
+
+END;
 $BODY$
     LANGUAGE plpgsql VOLATILE;

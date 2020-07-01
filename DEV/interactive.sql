@@ -3,10 +3,11 @@
    interactive.sql
 
   This file is a scratch-workspace for developing this extension, based on the
-  file definitions of everything here. 
+  file definitions of everything here.
 
-  This SO question got my brain going about having the definition read and applied:
-    <www-url "https://stackoverflow.com/questions/27808534/how-to-execute-a-string-result-of-a-stored-procedure-in-postgres">
+  This SO question got my brain going about having the definition read and
+    applied: <www-url
+    "https://stackoverflow.com/questions/27808534/how-to-execute-a-string-result-of-a-stored-procedure-in-postgres">
 
 */
 
@@ -50,7 +51,9 @@ DROP TABLE if EXISTS testp.a;
 
 -- create objs for diff
 CREATE TABLE testr.a(i int, ii text, iii bit);
-CREATE TABLE testp.a(ii text, iv numeric CONSTRAINT positive_price CHECK (iv > 0));
+CREATE TABLE testp.a(
+ii text,
+iv numeric CONSTRAINT positive_price CHECK (iv > 0));
 
 
 CREATE TABLE testr.b(ii text);
@@ -58,7 +61,9 @@ CREATE TABLE testr.b(ii text);
 -- DROP i
 -- DROP iii
 -- ADD iv text
-SELECT PUBLIC.reconsile_desired('testr', 'testp', 'a');
+
+SELECT deploy.reconcile_tables('testr', 'testp', 'a', 'a');
+
 
 -- expecting:
 -- ADD i int
