@@ -5,17 +5,18 @@ DROP FUNCTION IF EXISTS deploy.reconcile_schema(
 
 CREATE OR REPLACE FUNCTION deploy.reconcile_schema(
     source_schema text, target_schema text)
-RETURNS SETOF text AS
+RETURNS TABLE(priority int, ddl text) AS
 $BODY$
 DECLARE
     _table record;
     _function record;
-    ddl text;
 BEGIN
     -- preparations
     ---------------
     --------------- FIXME: create & modify distinct attrs. 
 
+    DROP TABLE IF EXISTS acc_ddl;
+    CREATE TEMPORARY TABLE acc_ddl (priority int, ddl text);
 
     -- table actions
     -- FIXME: covering NULLS from LEFT and RIGHT
@@ -49,18 +50,17 @@ BEGIN
         ) AS target
         ON active.relname = target.relname
     LOOP
-        RAISE NOTICE '_table: %', _table;
+        RAISE NOTICE '_table cons table: %', _table;
 
-        SELECT INTO ddl
-            (SELECT
-                deploy.reconcile_constraints(
-               _table.s_schema, _table.s_relname, _table.s_oid::integer,
-               _table.t_schema, _table.t_relname, _table.t_oid::integer)
-            UNION SELECT
-            deploy.reconcile_tables(
-                _table.s_schema::text, _table.s_relname::text,
-                _table.t_schema::text, _table.t_relname::text));
-        return next ddl;
+        INSERT INTO acc_ddl
+        SELECT 2, deploy.reconcile_constraints(
+            _table.s_schema, _table.s_relname, _table.s_oid::integer,
+            _table.t_schema, _table.t_relname, _table.t_oid::integer);
+
+        INSERT INTO acc_ddl
+        SELECT 1, deploy.reconcile_tables(
+            _table.s_schema::text, _table.s_relname::text, _table.s_oid::integer,
+            _table.t_schema::text, _table.t_relname::text, _table.s_oid::integer);
     END LOOP;
 
     -- indices
@@ -96,8 +96,14 @@ BEGIN
 
 -- https://www.postgresql.org/docs/current/functions-info.html
 
-   RAISE NOTICE 'ORDER_DDL: %', ddl;
 
+   RETURN QUERY
+       SELECT d.priority, d.ddl FROM acc_ddl d
+       ORDER BY d.priority ASC;
+
+   DROP TABLE IF EXISTS acc_dll;
 END;
 $BODY$
     LANGUAGE plpgsql VOLATILE;
+
+select deploy.reconcile_schema('testr', ' testp');

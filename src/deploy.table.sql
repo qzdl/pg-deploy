@@ -1,15 +1,11 @@
 drop FUNCTION if exists deploy.reconcile_tables (
-    source_schema text,
-    target_schema text,
-    source_rel text,
-    target_rel text
+    source_schema text, source_rel text, source_oid int,
+    target_schema text, target_rel text, target_oid int
 );
 
 CREATE FUNCTION deploy.reconcile_tables(
-    source_schema text,
-    target_schema text,
-    source_rel text,
-    target_rel text
+    source_schema text, source_rel text, source_oid int,
+    target_schema text, target_rel text, target_oid int
 )
 RETURNS SETOF text AS
 $BODY$
@@ -27,9 +23,8 @@ BEGIN
             --AND relname~ ('^('||source_rel||')$')
         ORDER BY c.relname
     LOOP -- _tables
-        RAISE NOTICE '
-
-OPERATING FOR TABLE [schema.rel] :: %', _tables.nspname||'.'||_tables.relname;
+        RAISE NOTICE 'OPERATING FOR TABLE [schema.rel] :: %',
+            _tables.nspname||'.'||_tables.relname;
         
         -- get column info (name, type, NULL, constraints, defaults)
         FOR _columns IN
