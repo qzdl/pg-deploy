@@ -1,12 +1,10 @@
 drop FUNCTION if exists deploy.reconcile_tables (
-    source_schema text, source_rel text, source_oid int,
-    target_schema text, target_rel text, target_oid int
-);
+    source_schema name, source_rel name, source_oid oid,
+    target_schema name, target_rel name, target_oid oid);
 
-CREATE FUNCTION deploy.reconcile_tables(
-    source_schema text, source_rel text, source_oid int,
-    target_schema text, target_rel text, target_oid int
-)
+CREATE OR REPLACE FUNCTION deploy.reconcile_tables(
+    source_schema name, source_rel name, source_oid oid,
+    target_schema name, target_rel name, target_oid oid)
 RETURNS SETOF text AS
 $BODY$
 DECLARE
@@ -23,8 +21,7 @@ BEGIN
             --AND relname~ ('^('||source_rel||')$')
         ORDER BY c.relname
     LOOP -- _tables
-        RAISE NOTICE 'OPERATING FOR TABLE [schema.rel] :: %',
-            _tables.nspname||'.'||_tables.relname;
+        RAISE NOTICE 'LOOP TABLES: %', _tables;
         
         -- get column info (name, type, NULL, constraints, defaults)
         FOR _columns IN
@@ -110,7 +107,7 @@ BEGIN
             AND signs.sign IS NOT NULL
             ORDER BY a.attnum
         LOOP -- _columns
-            RAISE NOTICE 'COLUMN: %', _columns.sign;
+            RAISE NOTICE 'LOOP COLUMN: %', _columns.sign;
 
             IF _columns.sign = 'DROP' THEN
                 col_ddl := 'ALTER TABLE '||source_schema||'.'||source_rel||' DROP COLUMN '||_columns.col;

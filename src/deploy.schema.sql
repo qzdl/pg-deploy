@@ -1,10 +1,10 @@
 CREATE SCHEMA IF NOT EXISTS deploy;
 
 DROP FUNCTION IF EXISTS deploy.reconcile_schema(
-    source_schema text, target_schema text);
+    source_schema name, target_schema name);
 
 CREATE OR REPLACE FUNCTION deploy.reconcile_schema(
-    source_schema text, target_schema text)
+    source_schema name, target_schema name)
 RETURNS TABLE(priority int, ddl text) AS
 $BODY$
 DECLARE
@@ -12,8 +12,7 @@ DECLARE
     _function record;
 BEGIN
     -- preparations
-    ---------------
-    --------------- FIXME: create & modify distinct attrs. 
+    --------------- FIXME: create & modify distinct attrs.
 
     DROP TABLE IF EXISTS acc_ddl;
     CREATE TEMPORARY TABLE acc_ddl (priority int, ddl text);
@@ -27,7 +26,7 @@ BEGIN
                  LEFT JOIN pg_catalog.pg_namespace n
                      ON n.oid = c.relnamespace
             WHERE relkind = 'r'
-            AND (n.nspname = target_schema OR n.nspname = source_schema)
+            AND (n.nspname = source_schema OR n.nspname = target_schema)
             -- AND relname~ ('^('||object_name||')$')
             ORDER BY c.relname
         )
@@ -37,41 +36,52 @@ BEGIN
             active.oid     as s_oid,
             target.nspname as t_schema,
             target.relname as t_relname,
-            target.oid     as t_oid
+            target.oid     as t_oid,
+            target.ti
         FROM (
             SELECT nspname, relname, oid
             FROM candidates
             WHERE nspname = source_schema
+
         ) AS active
         LEFT JOIN (
-            SELECT nspname, relname, oid
+            SELECT nspname, relname, oid, pg_typeof(nspname) as ti
             FROM candidates
             WHERE nspname = target_schema
         ) AS target
         ON active.relname = target.relname
     LOOP
-        RAISE NOTICE '_table cons table: %', _table;
+        RAISE NOTICE 'LOOP TOPLEVEL: %', _table;
 
+        -- constraints
+        --------------
         INSERT INTO acc_ddl
         SELECT 2, deploy.reconcile_constraints(
-            _table.s_schema, _table.s_relname, _table.s_oid::integer,
-            _table.t_schema, _table.t_relname, _table.t_oid::integer);
+            _table.s_schema, _table.s_relname, _table.s_oid::oid,
+            _table.t_schema, _table.t_relname, _table.t_oid::oid);
 
+        -- functions / triggers
+        -----------------------
+
+        -- indices
+        ----------
+        INSERT INTO acc_ddl
+        SELECT 3, deploy.reconcile_index(
+            _table.s_schema::name, _table.s_oid::oid,
+            _table.t_schema::name, _table.t_oid::oid);
+
+        -- tables
+        ---------
         INSERT INTO acc_ddl
         SELECT 1, deploy.reconcile_tables(
-            _table.s_schema::text, _table.s_relname::text, _table.s_oid::integer,
-            _table.t_schema::text, _table.t_relname::text, _table.s_oid::integer);
+            _table.s_schema::name, _table.s_relname::name, _table.s_oid::oid,
+            _table.t_schema::name, _table.t_relname::name, _table.t_oid::oid);
     END LOOP;
 
-    -- indices
-    ----------
-    -- FOR rel in _tables
-    -- LOOP
-
-    -- END LOOP;
-
-    -- -- functions / triggers
-    -- -----------------------
+    -- functions / triggers
+    -----------------------
+    -- https://www.postgresql.org/docs/current/functions-info.html
+    --
     -- FOR _function IN
     --     SELECT quote_ident(n.nspname) as schema,
     --            quote_ident(p.proname) as function,
@@ -86,17 +96,6 @@ BEGIN
     -- END LOOP;
 
 
-    -- -- tables
-    -- ---------
-    -- FOR rel IN _tables
-    -- LOOP
-    --     RAISE NOTICE '_tables: %', rel;
-
-    -- END LOOP;
-
--- https://www.postgresql.org/docs/current/functions-info.html
-
-
    RETURN QUERY
        SELECT d.priority, d.ddl FROM acc_ddl d
        ORDER BY d.priority ASC;
@@ -106,4 +105,4 @@ END;
 $BODY$
     LANGUAGE plpgsql VOLATILE;
 
-select deploy.reconcile_schema('testr', ' testp');
+select deploy.reconcile_schema('testp'::name, ' testr'::name);

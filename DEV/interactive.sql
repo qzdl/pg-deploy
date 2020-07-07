@@ -128,3 +128,162 @@ union
 FROM pg_class
 WHERE relname = 'con'
     AND relnamespace = (SELECT ns.oid FROM pg_namespace ns WHERE ns.nspname = 'testr')
+
+--
+-- Index; test column change
+
+DROP TABLE IF EXISTS testp.idx;
+DROP TABLE IF EXISTS testr.idx;
+
+CREATE TABLE testp.idx (
+    a text,
+    b int,
+    c boolean,
+    d uuid
+);
+
+CREATE INDEX idx_hash on testp.idx using hash (d);
+
+CREATE TABLE testr.idx (
+    a text,
+    b int,
+    c boolean,
+    d uuid
+);
+
+CREATE INDEX idx_hash on testr.idx using hash (b);
+
+-- the difference between TEXT and NAME!!!!!! in psql processing, text is
+-- coalesced, but in function execution, they aren't!! This was noticed in an
+-- iteration of `deploy.reconcile_schema`, where the args were ::text, and the
+-- query below (from the arguments) was just buggin outon some undefined
+-- behaviour. If in doubt, `pg_typeof()` and explicit typing!
+
+       WITH candidates as (
+            SELECT c.relname, c.oid, n.nspname
+            FROM pg_catalog.pg_class c
+                 LEFT JOIN pg_catalog.pg_namespace n
+                     ON n.oid = c.relnamespace
+            WHERE relkind = 'r'
+            AND (n.nspname = 'testr' OR n.nspname = 'testp')
+            -- AND relname~ ('^('||object_name||')$')
+            ORDER BY c.relname
+        )
+        SELECT
+            active.nspname as s_schema,
+            active.relname as s_relname,
+            active.oid     as s_oid,
+            target.nspname as t_schema,
+            target.relname as t_relname,
+            target.oid     as t_oid
+        FROM (
+            SELECT nspname, relname, oid
+            FROM candidates
+            WHERE nspname = 'testp'
+        ) AS active
+        LEFT JOIN (
+            SELECT nspname, relname, oid
+            FROM candidates
+            WHERE nspname = 'testr'
+        ) AS target
+        ON active.relname = target.relname
+
+
+-- indices; LEFT RIGHT null problem if we use the set of indices for RELATION
+-- from the source schema, then there is the potential for error in not having a
+-- way to detect NEW indexes (not present in LEFT, but in RIGHT)
+-- 'testp'::name, 34175::integer, 'testr'::name, 34182::integer
+
+WITH indices AS -- all source,target
+(
+            SELECT indrelid, indexrelid, ic.relname,
+                   n.nspname, pg_get_indexdef(indexrelid) AS def
+            FROM pg_catalog.pg_index AS i
+            INNER JOIN pg_catalog.pg_class AS ic
+                ON ic.oid = i.indexrelid
+            INNER JOIN pg_catalog.pg_namespace AS n
+                ON n.oid = ic.relnamespace
+            WHERE i.indrelid IN (34175, 34182)
+)
+SELECT 'DROP' AS sign, indexrelid, relname, indrelid, def
+FROM indices AS m
+WHERE nspname = 'testp'
+  AND NOT EXISTS (
+    SELECT indexrelid, relname
+    FROM indices AS i
+    WHERE i.nspname = 'testr'
+      AND i.relname = m.relname)
+UNION ALL
+SELECT 'DELTA' AS sign, indexrelid, relname, indrelid, def
+FROM indices AS m
+WHERE nspname = 'testr'
+  AND (
+    NOT EXISTS (
+      SELECT indexrelid, relname
+      FROM indices AS i
+      WHERE i.nspname = 'testp'
+        AND i.relname = m.relname)
+    OR m.def <> (SELECT def
+                 FROM indices AS i
+                 WHERE i.nspname = 'testp'
+                   AND i.relname = m.relname))
+
+
+--     ██               ██                     ██                     ██
+--    ░░               ░██                    ░██                    ░██
+--     ██ ███████      ░██  █████  ██   ██   ██████  █████   ██████ ██████  ██████
+--    ░██░░██░░░██  ██████ ██░░░██░░██ ██   ░░░██░  ██░░░██ ██░░░░ ░░░██░  ██░░░░
+--    ░██ ░██  ░██ ██░░░██░███████ ░░███      ░██  ░███████░░█████   ░██  ░░█████
+--    ░██ ░██  ░██░██  ░██░██░░░░   ██░██     ░██  ░██░░░░  ░░░░░██  ░██   ░░░░░██
+--    ░██ ███  ░██░░██████░░██████ ██ ░░██    ░░██ ░░██████ ██████   ░░██  ██████
+--    ░░ ░░░   ░░  ░░░░░░  ░░░░░░ ░░   ░░      ░░   ░░░░░░ ░░░░░░     ░░  ░░░░░░
+
+
+-----|| NO LEFT, RIGHT
+-- expecting CREATE from definition testr ONTO testp
+--   as "create index nlr_idx on testp.nlr using hash (a);"
+drop table if exists testp.nlr;
+drop table if exists testr.nlr;
+create table testp.nlr(a text);
+create table testr.nlr(a text);
+drop index if exists testp.nlr_idx;
+drop index if exists testr.nlr_idx;
+create index nlr_idx on testr.nlr using hash (a); -- *expected output too
+select deploy.reconcile_index(
+    'testp'::name,
+    (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testp' where relname = 'nlr'),
+    'testr'::name,
+    (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testr' where relname = 'nlr'));
+-----|| LEFT, NO RIGHT
+-- expecting DROP from RELNAME on testp
+--   as "DROP INDEX testp.lnr;"
+drop table if exists testp.lnr;
+drop table if exists testr.lnr;
+create table testp.lnr(a text);
+create table testr.lnr(a text);
+drop index if exists testp.lnr_idx;
+drop index if exists testr.lnr_idx;
+create index lnr_idx on testp.lnr using hash (a);
+select deploy.reconcile_index(
+    'testp'::name,
+    (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testp' where relname = 'lnr'),
+    'testr'::name,
+    (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testr' where relname = 'lnr'));
+-----|| LEFT, RIGHT :: MOD
+-- expecting DROP from RELNAME on testp
+--   as "DROP INDEX testp.lrm;"
+-- expecting CREATE from definition testr ONTO testp
+--   as "create index lrm_idx on testp.lrm using hash (a);"
+drop table if exists testp.lrm;
+drop table if exists testr.lrm;
+create table testp.lrm(a text, b text);
+create table testr.lrm(a text, b text);
+drop index if exists testp.lrm_idx;
+drop index if exists testr.lrm_idx;
+create index lrm_idx on testp.lrm using hash (a);
+create index lrm_idx on testr.lrm using hash (b); -- *expected output too
+select deploy.reconcile_index(
+    'testp'::name,
+    (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testp' where relname = 'lrm'),
+    'testr'::name,
+    (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testr' where relname = 'lrm'));

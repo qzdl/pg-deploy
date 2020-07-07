@@ -7,14 +7,13 @@
 
 */
 
-
 DROP FUNCTION IF EXISTS deploy.reconcile_constraints(
-    source_schema text, source_rel text, source_oid int,
-    target_schema text, target_rel text, target_oid int);
+    source_schema name, source_rel name, source_oid oid,
+    target_schema name, target_rel name, target_oid oid);
     
-CREATE FUNCTION deploy.reconcile_constraints(
-    source_schema text, source_rel text, source_oid int,
-    target_schema text, target_rel text, target_oid int)
+CREATE OR REPLACE FUNCTION deploy.reconcile_constraints(
+    source_schema name, source_rel name, source_oid oid,
+    target_schema name, target_rel name, target_oid oid)
 RETURNS SETOF text AS
 $BODY$
 DECLARE
@@ -47,10 +46,7 @@ BEGIN
         SELECT sign, conname, constraintdef, conoid
         FROM signs
     LOOP
-        RAISE NOTICE '
-
-CONSTRAINT: %', _constraints;
-
+        RAISE NOTICE 'LOOP CONSTRAINT: %', _constraints;
 
         IF _constraints.sign = 'DROP' THEN
             ddl := 'ALTER TABLE '||source_schema||'.'||source_rel
