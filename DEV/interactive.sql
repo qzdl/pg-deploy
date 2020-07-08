@@ -196,36 +196,36 @@ CREATE INDEX idx_hash on testr.idx using hash (b);
 
 WITH indices AS -- all source,target
 (
-            SELECT indrelid, indexrelid, ic.relname,
-                   n.nspname, pg_get_indexdef(indexrelid) AS def
-            FROM pg_catalog.pg_index AS i
-            INNER JOIN pg_catalog.pg_class AS ic
-                ON ic.oid = i.indexrelid
-            INNER JOIN pg_catalog.pg_namespace AS n
-                ON n.oid = ic.relnamespace
-            WHERE i.indrelid IN (34175, 34182)
+    SELECT indrelid, indexrelid, ic.relname,
+           n.nspname, pg_get_indexdef(indexrelid) AS def
+    FROM pg_catalog.pg_index AS i
+    INNER JOIN pg_catalog.pg_class AS ic
+        ON ic.oid = i.indexrelid
+    INNER JOIN pg_catalog.pg_namespace AS n
+        ON n.oid = ic.relnamespace
+    WHERE i.indrelid IN (35036::oid, 35042::oid)
 )
 SELECT 'DROP' AS sign, indexrelid, relname, indrelid, def
 FROM indices AS m
-WHERE nspname = 'testp'
+WHERE nspname = 'testp'::name
   AND NOT EXISTS (
     SELECT indexrelid, relname
     FROM indices AS i
-    WHERE i.nspname = 'testr'
+    WHERE i.nspname = 'testr'::name
       AND i.relname = m.relname)
 UNION ALL
 SELECT 'DELTA' AS sign, indexrelid, relname, indrelid, def
 FROM indices AS m
-WHERE nspname = 'testr'
+WHERE nspname = 'testr'::name
   AND (
     NOT EXISTS (
       SELECT indexrelid, relname
       FROM indices AS i
-      WHERE i.nspname = 'testp'
+      WHERE i.nspname = 'testp'::name
         AND i.relname = m.relname)
     OR m.def <> (SELECT def
                  FROM indices AS i
-                 WHERE i.nspname = 'testp'
+                 WHERE i.nspname = 'testp'::name
                    AND i.relname = m.relname))
 
 
@@ -282,6 +282,37 @@ drop index if exists testp.lrm_idx;
 drop index if exists testr.lrm_idx;
 create index lrm_idx on testp.lrm using hash (a);
 create index lrm_idx on testr.lrm using hash (b); -- *expected output too
+select deploy.reconcile_index(
+    'testp'::name,
+    (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testp' where relname = 'lrm'),
+    'testr'::name,
+    (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testr' where relname = 'lrm'));
+-----|| LEFT, RIGHT :: NO MOD
+-- expecting NOTHING
+drop table if exists testp.lrnm;
+drop table if exists testr.lrnm;
+create table testp.lrnm(a text, b text);
+create table testr.lrnm(a text, b text);
+drop index if exists testp.lrnm_idx;
+drop index if exists testr.lrnm_idx;
+create index lrnm_idx on testp.lrnm using hash (a);
+create index lrnm_idx on testr.lrnm using hash (a);
+select deploy.reconcile_index(
+    'testp'::name,
+    (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testp' where relname = 'lrnm'),
+    'testr'::name,
+    (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testr' where relname = 'lrnm'));
+
+
+
+select deploy.reconcile_index(
+    'testp'::name,
+    (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testp' where relname = 'lnr'),
+    'testr'::name,
+    (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testr' where relname = 'lnr'));
+
+
+
 select deploy.reconcile_index(
     'testp'::name,
     (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testp' where relname = 'lrm'),

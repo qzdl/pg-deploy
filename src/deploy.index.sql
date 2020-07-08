@@ -24,10 +24,11 @@ BEGIN
     RAISE NOTICE 'ARGS %', source_schema||'|'||source_oid||':'||target_schema||'|'||target_oid;
     
     FOR _index IN
-        WITH indices AS -- all source,target
+        WITH indices AS
         (
-            SELECT indrelid, indexrelid, ic.relname,
-                   n.nspname, pg_get_indexdef(indexrelid) AS def
+            SELECT
+                indrelid, indexrelid, ic.relname, n.nspname,
+                replace(pg_get_indexdef(indexrelid), target_schema||'.', source_schema||'.') AS def
             FROM pg_catalog.pg_index AS i
             INNER JOIN pg_catalog.pg_class AS ic
                 ON ic.oid = i.indexrelid
