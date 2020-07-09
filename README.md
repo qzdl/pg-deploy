@@ -30,7 +30,8 @@ Advantages:
     - Tests, deployment can be triggered by git hook etc
 -   Single source of truth for all declarations and changes to schemata
 -   Automatic test generation for functional, structural, etc tests; using standard
-    Postgres test framework.
+    Postgres test framework. 
+
 
 How it works - some theory:
 
@@ -45,6 +46,18 @@ into the new_schema. The code generation based on the differences between object
 or a rollback, only the direction of transformation must be defined:
 If the new_schema has a new table then the table declaration must be calculated and applied to the old_schema.
 The other direction would be a DROP statement that removes the excess table.
+
+
+Caveats
+
+- chain renaming is rollback boundary:
+    if object A is renamed as B, B is renamed as C and a new A is made in subsequent changes, it is impossible to restore
+    the initial state. If that is a table, it is not possible to decide if it is a new table or a renamed old one. 
+    With other words: RENAMEing objects is not encouraged.
+- runtime errors are not checked: 
+    In case of changing the name of a function from or to its qualified form but inside a function or dependent function
+    the change is not made the result leads to runtime errors. Tests are great tools to prevent such situation.
+
 
 <a id="org30bf2dc"></a>
 
@@ -201,3 +214,8 @@ Some useful links for troubleshooting this process:
 
 -   [PostgreSQL: Documentation: 12: 20.3. Authentication Methods](https://www.postgresql.org/docs/12/auth-methods.html)
 -   [postgresql - Getting error: Peer authentication failed for user &ldquo;postgres&rdquo;, w&#x2026;](https://stackoverflow.com/questions/18664074/getting-error-peer-authentication-failed-for-user-postgres-when-trying-to-ge)
+
+# TODO
+
+- when creating the source and target schema consider the case of fully qualified naming (schema.obj_name)
+
