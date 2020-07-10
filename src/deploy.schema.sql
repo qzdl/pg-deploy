@@ -27,7 +27,6 @@ BEGIN
                      ON n.oid = c.relnamespace
             WHERE relkind = 'r'
             AND (n.nspname = source_schema OR n.nspname = target_schema)
-            -- AND relname~ ('^('||object_name||')$')
             ORDER BY c.relname
         )
         SELECT
@@ -36,20 +35,20 @@ BEGIN
             active.oid     as s_oid,
             target.nspname as t_schema,
             target.relname as t_relname,
-            target.oid     as t_oid,
-            target.ti
+            target.oid     as t_oid
         FROM (
             SELECT nspname, relname, oid
             FROM candidates
             WHERE nspname = source_schema
-
         ) AS active
         LEFT JOIN (
-            SELECT nspname, relname, oid, pg_typeof(nspname) as ti
+            SELECT nspname, relname, oid
             FROM candidates
             WHERE nspname = target_schema
         ) AS target
         ON active.relname = target.relname
+        UNION ALL
+
     LOOP
         RAISE NOTICE 'LOOP TOPLEVEL: %', _table;
 
