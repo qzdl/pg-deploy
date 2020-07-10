@@ -302,3 +302,110 @@ select deploy.reconcile_index(
     (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testp' where relname = 'lrnm'),
     'testr'::name,
     (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testr' where relname = 'lrnm'));
+
+--- FUNCTIONS
+--------------
+--------------
+--- LRD
+--- expecting CREATE OR REPLACE func
+create or replace function testp.func_lrd(a int, b text) returns int as $body$ begin return 0; end; $body$ language plpgsql;
+create or replace function testr.func_lrd(a int, b int) returns int as $body$ begin return 0; end; $body$ language plpgsql;
+select deploy.reconcile_function(
+    'testp'::name,
+    (select p.oid from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'testp' and p.proname = 'func_lrd')
+    'testr'::name
+    (select p.oid from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'testr' and p.proname = 'func_lrd'))
+    
+-- LRND
+-- expecting nil
+create or replace function testp.func_lrnd(a int, b int) returns int as $body$ begin return 0; end; $body$ language plpgsql;
+create or replace function testr.func_lrnd(a int, b int) returns int as $body$ begin return 0; end; $body$ language plpgsql;
+select deploy.reconcile_function(
+    'testp'::name,
+    (select p.oid from from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'testp' and p.proname = 'func_lrnd')
+    'testr'::name
+    (select p.oid from from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'testr' and p.proname = 'func_lrnd'))
+
+-- NLR
+-- expecting CREATE func
+create or replace function testr.func_nlr(a int, b int) returns int as $body$ begin return 0; end; $body$ language plpgsql;
+select deploy.reconcile_function(
+    'testp'::name,
+    (select p.oid from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'testp' and p.proname = 'func_nlr')
+    'testr'::name
+    (select p.oid from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'testr' and p.proname = 'func_nlr'))
+
+-- LNR
+-- exprecting DROP func
+drop function if exists testr.func_lnr(a int, b int);
+create or replace function testp.func_lnr(a int, b int) returns int as $body$ begin return 0; end; $body$ language plpgsql;
+select deploy.reconcile_function(
+    'testp'::name,
+    (select p.oid from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'testp' and p.proname = 'func_lnr')
+    'testr'::name
+    (select p.oid from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'testr' and p.proname = 'func_lnr'));
+
+-- state table showing LEFT and RIGHT states across the above
+-- this is to be used as the default core logic to reconcile
+-- 'stateless' objects; functions, triggers, indices
+
+with fun as (
+    SELECT quote_ident(n.nspname) as nspname,
+           quote_ident(p.proname) as fname,
+           p.oid
+    FROM pg_catalog.pg_proc p
+        JOIN pg_catalog.pg_namespace n
+        ON n.oid = p.pronamespace
+    WHERE n.nspname not like 'pg%'
+      AND n.nspname <> 'information_schema'
+)
+SELECT DISTINCT
+      s_schema,
+      s_fname,
+      s_oid,
+      t_schema,
+      t_fname,
+      t_oid
+FROM (
+    SELECT s.nspname as s_schema,
+           s.fname   as s_fname,
+           s.oid     as s_oid,
+           t.nspname as t_schema,
+           t.fname   as t_fname,
+           t.oid     as t_oid
+    FROM (
+         SELECT nspname, fname, oid
+         FROM fun
+         WHERE nspname = 'testp'
+    ) AS s
+    LEFT JOIN (
+         SELECT nspname, fname, oid
+         FROM fun
+         WHERE nspname = 'testr'
+    ) AS t ON s.fname = t.fname
+    UNION ALL
+    SELECT s.nspname as s_schema,
+           s.fname   as s_fname,
+           s.oid     as s_oid,
+           t.nspname as t_schema,
+           t.fname   as t_fname,
+           t.oid     as t_oid
+    FROM (
+         SELECT nspname, fname, oid
+         FROM fun
+         WHERE nspname = 'testr'
+    ) AS t
+    LEFT JOIN (
+         SELECT nspname, fname, oid
+         FROM fun
+         WHERE nspname = 'testp'
+    ) AS s ON s.fname = t.fname
+) as AAA;
