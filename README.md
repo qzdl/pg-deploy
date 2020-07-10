@@ -5,19 +5,13 @@
     1.  [Workflow](#org30bf2dc)
         1.  [Extension Install](#org82aaf99)
     2.  [Usage](#orga57ddd9)
-    3.  [Deploy/Rollback](#org9d415b0)
-    4.  [Project Structure](#org9c1e0fe)
-        1.  [sql/](#org6513172)
-        2.  [expected/](#orga8d4880)
-    5.  [Troubleshooting](#org55c182b)
-        1.  [`installcheck`: `psql: FATAL:  role "root" does not exist`](#orge6f3ef8)
-        2.  [`installcheck`: `psql: FATAL:  Peer authentication failed for user "<USER>"`](#org1e98693)
+    3.  [For Developers](#forDevs)
+    4.  [Troubleshooting during installation](#org55c182b)
+    5.  [Todo](#todo)
 
 
 
-<a id="org757db1b"></a>
-
-# `DEPLOY_TEST`
+# <a name="#org757db1b"></a> `DEPLOY_TEST`
 
 Postgres extension for maintaining database schemata using git.
 
@@ -28,10 +22,13 @@ Advantages:
     - Proper version control with rollback
     - Deployment by commit, by tag or as your semantic versioning scheme requires
     - Tests, deployment can be triggered by git hook etc
--   Single source of truth for all declarations and changes to schemata
--   Automatic test generation for functional, structural, etc tests; using standard
-    Postgres test framework. 
-
+    - Branches for different scenarios (archive, production system etc., where minor changes may be present)
+    - git hooks
+    - history
+    - etc.
+-   Single source of truth for all declarations and changes to schemata in a repository
+-   Using the database for generating the code for depoyment means syntax check for the schema
+-   Make your own automated testing pipeline for the generated code
 
 How it works - some theory:
 
@@ -39,29 +36,39 @@ The definition of the database object describe the state of the database in rega
 a set of CREATE statements. A change in this definition results in a new state, that is also a set
 of create statements. We can establish the differences between the two states with the help of the
 PostgreSQL catalog tables and we can generate SQL code that can transform one state into an other.
-With other workd: if we create a schema using the current state - new_schema - and using the previous
+With other works: if we create a schema using the current state - new_schema - and using the previous
 state - old_schema - in a running database. Then the main function of the extension calculates the
 differences between the two schemas and generates an SQL code. This code can transform old_schema
 into the new_schema. The code generation based on the differences between objects, regardless if that is a new commit
 or a rollback, only the direction of transformation must be defined:
-If the new_schema has a new table then the table declaration must be calculated and applied to the old_schema.
+
+For instance, if the new_schema has a new table then the table declaration must be calculated and applied to the old_schema.
 The other direction would be a DROP statement that removes the excess table.
+
+To test the generated code simply apply the generated code to the original database schema and call the
+comparison function of the pg-deploy extension. The result should be a text without any sql commands:
+after applying the changes to the source state it should be transformed into the target state, so there should be
+no difference.
+
+After proving the generated code further commands can be added to it before deployment - eg. rebuilding indices, vacuuming etc.
 
 
 Caveats
 
 - chain renaming is rollback boundary:
     if object A is renamed as B, B is renamed as C and a new A is made in subsequent changes, it is impossible to restore
-    the initial state. If that is a table, it is not possible to decide if it is a new table or a renamed old one. 
+    the initial state. If that is a table, it is not possible to decide if it is a new table or a renamed old one.
     With other words: RENAMEing objects is not encouraged.
-- runtime errors are not checked: 
+- runtime errors are not checked:
     In case of changing the name of a function from or to its qualified form but inside a function or dependent function
     the change is not made the result leads to runtime errors. Tests are great tools to prevent such situation.
+- dyamically created tables shall not be part of the schema definition:
+    dynamically created tables are accidental for the particular database and not consistent
+    across databases. Such tables are table partitions or tables with time stamps generated dynamically. Be aware
+    if such tables are included in your schema definition.
 
 
-<a id="org30bf2dc"></a>
-
-### Extension Install
+### <a name="#org82aaf99"></a> Extension Install
 
 Installation of the extension follows the standard Postgres Extension install process.
 
@@ -95,14 +102,7 @@ test deploy<sub>test</sub>              &#x2026; ok
 `===================`
 
 
-<a id="orga57ddd9"></a>
-
-## Workflow
-
-
-<a id="org82aaf99"></a>
-
-## Usage
+## <a name="#orga57ddd9"></a> Usage
 
 ### Preparation
 
@@ -125,12 +125,16 @@ test deploy<sub>test</sub>              &#x2026; ok
     as if the object would be newly created. Any object deletion is a deletion in the file.
 -   To prepare the reference database so, that your target state goes into one schema and the current goes into an other.
 -   Call the extension's main function. If the reconciliation is successful, the return value is an SQL file that can be
-    used to create the state transition. Deploy it as usual and apply it to the database.
+    used to create the state transition.
+-   Test the code: as the source and target schema must exist on the reference database that is used by the extension,
+    modify the code so, that you can apply it to the source schema in the reference database. Call the crExtension's reconcile
+    function to calculate the differences again. The result should be text without any SQL executable code in it.
+-   Add your custom changes - eg. vacuum, index rebuild, statistics, etc. Deploy the code in your system.
 
 Note: For an example check the DEV/reconcile.sh script.
 
 
-## For Developers
+## <a name="#forDevs"></a> For Developers
 
 ### Testing - standard PostgreSQL test
 
@@ -153,20 +157,8 @@ NOTE: If structural changes against the **current** version exist in the databas
       can be followed to get a new baseline.
 
 
+### <a name="#org55c182b"></a> Troubleshooting during installation
 
-### TODO [expected/](expected/)
-
-- create the DEV/XXX_a.sql and DEV/XXX_b.sql and the DEV/YYY.sh for integration test
-- create the DEV/reconcile.sh as an example. (That may work on the current repository on the DEV/XXX_a.sql states? )
-
-
-
-###
-
-## Troubleshooting during installation
-
-
-<a id="orge6f3ef8"></a>
 
 ### `installcheck`: `psql: FATAL:  role "root" does not exist`
 
@@ -181,10 +173,6 @@ To fix, supply the `PGUSER` environment variable to `make` with the `-e` option:
 
     sudo make installcheck -e PGUSER='<user>'
 
-If you get an error regarding peer authentication, refer [1.5.2](#org1e98693)
-
-
-<a id="org1e98693"></a>
 
 ### `installcheck`: `psql: FATAL:  Peer authentication failed for user "<USER>"`
 
@@ -215,7 +203,8 @@ Some useful links for troubleshooting this process:
 -   [PostgreSQL: Documentation: 12: 20.3. Authentication Methods](https://www.postgresql.org/docs/12/auth-methods.html)
 -   [postgresql - Getting error: Peer authentication failed for user &ldquo;postgres&rdquo;, w&#x2026;](https://stackoverflow.com/questions/18664074/getting-error-peer-authentication-failed-for-user-postgres-when-trying-to-ge)
 
-# TODO
+# <a name="#todo"></a>TODO
 
 - when creating the source and target schema consider the case of fully qualified naming (schema.obj_name)
-
+- create the DEV/XXX_a.sql and DEV/XXX_b.sql and the DEV/YYY.sh for integration test
+- create the DEV/reconcile.sh as an example. (That may work on the current repository on the DEV/XXX_a.sql states? )
