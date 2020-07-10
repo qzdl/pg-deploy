@@ -317,7 +317,19 @@ select deploy.reconcile_function(
     'testr'::name
     (select p.oid from pg_proc p join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'testr' and p.proname = 'func_lrd'))
-    
+
+--- LRD2
+--- expecting CREATE OR REPLACE func
+create or replace function testp.func_lrd2(a int, g boolean) returns int as $body$ begin return 0; end; $body$ language plpgsql;
+create or replace function testr.func_lrd2(a int, f boolean) returns int as $body$ begin return 0; end; $body$ language plpgsql;
+select deploy.reconcile_function(
+    'testp'::name,
+    (select p.oid from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'testp' and p.proname = 'func_lrd2')
+    'testr'::name
+    (select p.oid from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'testr' and p.proname = 'func_lrd2'))
+
 -- LRND
 -- expecting nil
 create or replace function testp.func_lrnd(a int, b int) returns int as $body$ begin return 0; end; $body$ language plpgsql;
@@ -342,7 +354,7 @@ select deploy.reconcile_function(
     where n.nspname = 'testr' and p.proname = 'func_nlr'))
 
 -- LNR
--- exprecting DROP func
+-- expecting DROP func
 drop function if exists testr.func_lnr(a int, b int);
 create or replace function testp.func_lnr(a int, b int) returns int as $body$ begin return 0; end; $body$ language plpgsql;
 select deploy.reconcile_function(
@@ -359,53 +371,63 @@ select deploy.reconcile_function(
 
 with fun as (
     SELECT quote_ident(n.nspname) as nspname,
-           quote_ident(p.proname) as fname,
-           p.oid
+           quote_ident(p.proname) as objname,
+           p.oid                  as oid,
+           p.proname||'('||
+             pg_get_function_identity_arguments(p.oid)||')' as id
     FROM pg_catalog.pg_proc p
         JOIN pg_catalog.pg_namespace n
         ON n.oid = p.pronamespace
     WHERE n.nspname not like 'pg%'
       AND n.nspname <> 'information_schema'
+      AND n.nspname IN ('testp', 'testr')
+    ORDER BY n.nspname
 )
 SELECT DISTINCT
-      s_schema,
-      s_fname,
-      s_oid,
-      t_schema,
-      t_fname,
-      t_oid
+      CASE WHEN t_schema IS NULL THEN
+        'DROP FUNCTION IF EXISTS '||s_id
+           WHEN s_schema IS NULL THEN
+        replace(pg_get_functiondef(t_oid),
+          'testr'||'.', 'testp'||'.')
+      ELSE 'error help' END AS ddl,
+      COALESCE(s_schema, 'CREATE') as s_schema,
+      s_objname,
+      s_oid, --  pg_get_functiondef(s_oid) as s_def, pg_get_functions_identity_arguments(s_oid) as s_iargs
+      s_id,
+      COALESCE(t_schema, 'DROP') as t_schema,
+      t_objname,
+      t_oid, --  ,pg_get_functiondef(t_oid) as t_def, pg_get_function_identity_arguments(t_oid) as t_def,
+      t_id
 FROM (
+    WITH ss AS (
+        SELECT nspname, objname, oid, id
+        FROM fun
+        WHERE nspname = 'testp'
+    ),
+    tt AS (
+        SELECT nspname, objname, oid, id
+        FROM fun
+        WHERE nspname = 'testr'
+    )
     SELECT s.nspname as s_schema,
-           s.fname   as s_fname,
+           s.objname as s_objname,
            s.oid     as s_oid,
+           s.id      as s_id,
            t.nspname as t_schema,
-           t.fname   as t_fname,
-           t.oid     as t_oid
-    FROM (
-         SELECT nspname, fname, oid
-         FROM fun
-         WHERE nspname = 'testp'
-    ) AS s
-    LEFT JOIN (
-         SELECT nspname, fname, oid
-         FROM fun
-         WHERE nspname = 'testr'
-    ) AS t ON s.fname = t.fname
+           t.objname as t_objname,
+           t.oid     as t_oid,
+           t.id      as t_id
+    FROM ss as s
+    LEFT JOIN tt as t ON s.id = t.id
     UNION ALL
-    SELECT s.nspname as s_schema,
-           s.fname   as s_fname,
-           s.oid     as s_oid,
-           t.nspname as t_schema,
-           t.fname   as t_fname,
-           t.oid     as t_oid
-    FROM (
-         SELECT nspname, fname, oid
-         FROM fun
-         WHERE nspname = 'testr'
-    ) AS t
-    LEFT JOIN (
-         SELECT nspname, fname, oid
-         FROM fun
-         WHERE nspname = 'testp'
-    ) AS s ON s.fname = t.fname
+    SELECT s.nspname  as s_schema,
+           s.objname  as s_objname,
+           s.oid      as s_oid,
+           s.id       as s_id,
+           t.nspname  as t_schema,
+           t.objname  as t_objname,
+           t.oid      as t_oid,
+           t.id as t_id
+    FROM tt as t
+    LEFT JOIN ss as s ON s.id = t.id
 ) as AAA;
