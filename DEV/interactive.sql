@@ -229,142 +229,6 @@ WHERE nspname = 'testr'::name
                    AND i.relname = m.relname))
 
 
---     ██               ██                     ██                     ██
---    ░░               ░██                    ░██                    ░██
---     ██ ███████      ░██  █████  ██   ██   ██████  █████   ██████ ██████  ██████
---    ░██░░██░░░██  ██████ ██░░░██░░██ ██   ░░░██░  ██░░░██ ██░░░░ ░░░██░  ██░░░░
---    ░██ ░██  ░██ ██░░░██░███████ ░░███      ░██  ░███████░░█████   ░██  ░░█████
---    ░██ ░██  ░██░██  ░██░██░░░░   ██░██     ░██  ░██░░░░  ░░░░░██  ░██   ░░░░░██
---    ░██ ███  ░██░░██████░░██████ ██ ░░██    ░░██ ░░██████ ██████   ░░██  ██████
---    ░░ ░░░   ░░  ░░░░░░  ░░░░░░ ░░   ░░      ░░   ░░░░░░ ░░░░░░     ░░  ░░░░░░
-
-
------|| NO LEFT, RIGHT
--- expecting CREATE from definition testr ONTO testp
---   as "create index nlr_idx on testp.nlr using hash (a);"
-drop table if exists testp.nlr;
-drop table if exists testr.nlr;
-create table testp.nlr(a text);
-create table testr.nlr(a text);
-drop index if exists testp.nlr_idx;
-drop index if exists testr.nlr_idx;
-create index nlr_idx on testr.nlr using hash (a); -- *expected output too
-select deploy.reconcile_index(
-    'testp'::name,
-    (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testp' where relname = 'nlr'),
-    'testr'::name,
-    (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testr' where relname = 'nlr'));
------|| LEFT, NO RIGHT
--- expecting DROP from RELNAME on testp
---   as "DROP INDEX testp.lnr;"
-drop table if exists testp.lnr;
-drop table if exists testr.lnr;
-create table testp.lnr(a text);
-create table testr.lnr(a text);
-drop index if exists testp.lnr_idx;
-drop index if exists testr.lnr_idx;
-create index lnr_idx on testp.lnr using hash (a);
-select deploy.reconcile_index(
-    'testp'::name,
-    (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testp' where relname = 'lnr'),
-    'testr'::name,
-    (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testr' where relname = 'lnr'));
------|| LEFT, RIGHT :: MOD
--- expecting DROP from RELNAME on testp
---   as "DROP INDEX testp.lrm;"
--- expecting CREATE from definition testr ONTO testp
---   as "create index lrm_idx on testp.lrm using hash (a);"
-drop table if exists testp.lrm;
-drop table if exists testr.lrm;
-create table testp.lrm(a text, b text);
-create table testr.lrm(a text, b text);
-drop index if exists testp.lrm_idx;
-drop index if exists testr.lrm_idx;
-create index lrm_idx on testp.lrm using hash (a);
-create index lrm_idx on testr.lrm using hash (b); -- *expected output too
-select deploy.reconcile_index(
-    'testp'::name,
-    (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testp' where relname = 'lrm'),
-    'testr'::name,
-    (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testr' where relname = 'lrm'));
------|| LEFT, RIGHT :: NO MOD
--- expecting NOTHING
-drop table if exists testp.lrnm;
-drop table if exists testr.lrnm;
-create table testp.lrnm(a text, b text);
-create table testr.lrnm(a text, b text);
-drop index if exists testp.lrnm_idx;
-drop index if exists testr.lrnm_idx;
-create index lrnm_idx on testp.lrnm using hash (a);
-create index lrnm_idx on testr.lrnm using hash (a);
-select deploy.reconcile_index(
-    'testp'::name,
-    (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testp' where relname = 'lrnm'),
-    'testr'::name,
-    (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testr' where relname = 'lrnm'));
-
---- FUNCTIONS
---------------
---------------
---- LRD
---- expecting CREATE OR REPLACE func
-create or replace function testp.func_lrd(a int, b text) returns int as $body$ begin return 0; end; $body$ language plpgsql;
-create or replace function testr.func_lrd(a int, b int) returns int as $body$ begin return 0; end; $body$ language plpgsql;
-select deploy.reconcile_function(
-    'testp'::name,
-    (select p.oid from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-    where n.nspname = 'testp' and p.proname = 'func_lrd')
-    'testr'::name
-    (select p.oid from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-    where n.nspname = 'testr' and p.proname = 'func_lrd'))
-
---- LRD2
---- expecting CREATE OR REPLACE func
-create or replace function testp.func_lrd2(a int, g boolean) returns int as $body$ begin return 0; end; $body$ language plpgsql;
-create or replace function testr.func_lrd2(a int, f boolean) returns int as $body$ begin return 0; end; $body$ language plpgsql;
-select deploy.reconcile_function(
-    'testp'::name,
-    (select p.oid from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-    where n.nspname = 'testp' and p.proname = 'func_lrd2')
-    'testr'::name
-    (select p.oid from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-    where n.nspname = 'testr' and p.proname = 'func_lrd2'))
-
--- LRND
--- expecting nil
-create or replace function testp.func_lrnd(a int, b int) returns int as $body$ begin return 0; end; $body$ language plpgsql;
-create or replace function testr.func_lrnd(a int, b int) returns int as $body$ begin return 0; end; $body$ language plpgsql;
-select deploy.reconcile_function(
-    'testp'::name,
-    (select p.oid from from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-    where n.nspname = 'testp' and p.proname = 'func_lrnd')
-    'testr'::name
-    (select p.oid from from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-    where n.nspname = 'testr' and p.proname = 'func_lrnd'))
-
--- NLR
--- expecting CREATE func
-create or replace function testr.func_nlr(a int, b int) returns int as $body$ begin return 0; end; $body$ language plpgsql;
-select deploy.reconcile_function(
-    'testp'::name,
-    (select p.oid from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-    where n.nspname = 'testp' and p.proname = 'func_nlr')
-    'testr'::name
-    (select p.oid from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-    where n.nspname = 'testr' and p.proname = 'func_nlr'))
-
--- LNR
--- expecting DROP func
-drop function if exists testr.func_lnr(a int, b int);
-create or replace function testp.func_lnr(a int, b int) returns int as $body$ begin return 0; end; $body$ language plpgsql;
-select deploy.reconcile_function(
-    'testp'::name,
-    (select p.oid from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-    where n.nspname = 'testp' and p.proname = 'func_lnr')
-    'testr'::name
-    (select p.oid from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-    where n.nspname = 'testr' and p.proname = 'func_lnr'));
-
 -- state table showing LEFT and RIGHT states across the above
 -- this is to be used as the default core logic to reconcile
 -- 'stateless' objects; functions, triggers, indices
@@ -385,19 +249,11 @@ with fun as (
 )
 SELECT DISTINCT
       CASE WHEN t_schema IS NULL THEN
-        'DROP FUNCTION IF EXISTS '||s_id
+        'DROP FUNCTION IF EXISTS '||s_schema||'.'||s_id
            WHEN s_schema IS NULL THEN
         replace(pg_get_functiondef(t_oid),
           'testr'||'.', 'testp'||'.')
-      ELSE 'error help' END AS ddl,
-      COALESCE(s_schema, 'CREATE') as s_schema,
-      s_objname,
-      s_oid, --  pg_get_functiondef(s_oid) as s_def, pg_get_functions_identity_arguments(s_oid) as s_iargs
-      s_id,
-      COALESCE(t_schema, 'DROP') as t_schema,
-      t_objname,
-      t_oid, --  ,pg_get_functiondef(t_oid) as t_def, pg_get_function_identity_arguments(t_oid) as t_def,
-      t_id
+      ELSE '-- LEFT and RIGHT of '''||s_id||''' are equal' END AS ddl -- ,COALESCE(s_schema, 'CREATE') as s_schema,      -- s_objname,      -- s_oid, --  pg_get_functiondef(s_oid) as s_def, pg_get_functions_identity_arguments(s_oid) as s_iargs      -- s_id,      -- COALESCE(t_schema, 'DROP') as t_schema,      -- t_objname,      -- t_oid, --  ,pg_get_functiondef(t_oid) as t_def, pg_get_function_identity_arguments(t_oid) as t_def,      -- t_id
 FROM (
     WITH ss AS (
         SELECT nspname, objname, oid, id
@@ -431,3 +287,101 @@ FROM (
     FROM tt as t
     LEFT JOIN ss as s ON s.id = t.id
 ) as AAA;
+
+
+-- so, would it be possible to have a CTE as a function? if so, a reference to
+-- an arbitrary function can be given, which gives some 'higher order'
+-- functionality. I will try to achieve this without dynamic plsql if possible.
+-- * WHERE attribute IN ()
+-- * WHERE attribute IN <vector> ??
+drop function if exists deploy.function_cte(source_schema name, target_schema name);
+create function deploy.function_cte(source_schema name, target_schema name)
+RETURNS table(nspname name, objname name, oid oid, id text) AS
+$BODY$
+BEGIN
+    RETURN QUERY
+    SELECT n.nspname as nspname,
+           p.proname as objname,
+           p.oid     as oid,
+           p.proname||'('||pg_get_function_identity_arguments(p.oid)||')'
+                     as id
+    FROM pg_catalog.pg_proc p
+        JOIN pg_catalog.pg_namespace n
+        ON n.oid = p.pronamespace
+    WHERE n.nspname not like 'pg%'
+      AND n.nspname <> 'information_schema'
+      AND n.nspname IN (source_schema, target_scheman)
+    ORDER BY n.nspname;
+END;
+$BODY$
+    LANGUAGE plpgsql STABLE;
+
+drop function if exists deploy.tfunction_cte(source_schema name, target_schema name);
+create function deploy.tfunction_cte(source_schema name, target_schema name)
+RETURNS TEXT AS
+$BODY$
+BEGIN
+    RETURN FORMAT('
+    SELECT n.nspname as nspname,
+           p.proname as objname,
+           p.oid     as oid,
+           p.proname||''(''||pg_get_function_identity_arguments(p.oid)||'')''
+                     as id
+    FROM pg_catalog.pg_proc p
+        JOIN pg_catalog.pg_namespace n
+        ON n.oid = p.pronamespace
+    WHERE n.nspname not like ''pg%%''
+      AND n.nspname <> ''information_schema''
+      AND n.nspname IN (%1$L, %2$L)
+    ORDER BY n.nspname', source_schema, target_schema);
+END;
+$BODY$
+    LANGUAGE plpgsql STABLE;
+
+DROP FUNCTION IF EXISTS deploy.object_state(source_schema name, target_schema name, cte_fun text);
+CREATE OR REPLACE FUNCTION deploy.object_state(source_schema name, target_schema name, cte_fun text)
+RETURNS TABLE(
+    s_schema name, s_objname name, s_oid oid, s_id text,
+    t_schema name, t_objname name, t_oid oid, t_id text
+) AS $BODY$
+BEGIN
+    RETURN QUERY EXECUTE FORMAT('
+    with fun as (
+        select * from %1$s($1, $2)
+    )
+    SELECT DISTINCT
+        s_schema, s_objname, s_oid, s_id,
+        t_schema, t_objname, t_oid, t_id
+    FROM (
+        WITH ss AS (
+            SELECT nspname, objname, oid, id
+            FROM fun
+            WHERE nspname = $1
+        ),   tt AS (
+            SELECT nspname, objname, oid, id
+            FROM fun
+            WHERE nspname = $2
+        )
+        SELECT s.nspname as s_schema,
+               s.objname as s_objname,
+               s.oid     as s_oid,
+               s.id      as s_id,
+               t.nspname as t_schema,
+               t.objname as t_objname,
+               t.oid     as t_oid,
+               t.id      as t_id
+        FROM ss as s
+        LEFT JOIN tt as t ON s.id = t.id
+        UNION ALL
+        SELECT s.nspname  as s_schema,
+               s.objname  as s_objname,
+               s.oid      as s_oid,
+               s.id       as s_id,
+               t.nspname  as t_schema,
+               t.objname  as t_objname,
+               t.oid      as t_oid,
+               t.id as t_id
+        FROM tt as t
+        LEFT JOIN ss as s ON s.id = t.id
+    ) as AAA', cte_fun, source_schema, target_schema) USING source_schema, target_schema;
+END; $BODY$ LANGUAGE plpgsql STABLE;

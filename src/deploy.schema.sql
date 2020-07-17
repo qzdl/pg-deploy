@@ -47,8 +47,6 @@ BEGIN
             WHERE nspname = target_schema
         ) AS target
         ON active.relname = target.relname
-        UNION ALL
-
     LOOP
         RAISE NOTICE 'LOOP TOPLEVEL: %', _table;
 
@@ -68,10 +66,10 @@ BEGIN
 
         -- triggers
         -----------------------
-        INSERT INTO acc_ddl
-        SELECT 3, deploy.reconcile_functions(
-        
-        )
+        -- INSERT INTO acc_ddl
+        -- SELECT 3, deploy.reconcile_triggers(
+
+        -- )
 
         -- indices
         ----------
@@ -92,74 +90,14 @@ BEGIN
 
     -- functions
     ------------
-    -- https://www.postgresql.org/docs/current/functions-info.html
+    INSERT INTO acc_ddl
+    SELECT 5, deploy.reconcile_function(source_schema, target_schema);
 
-    FOR _function IN
-        with fun as (
-            SELECT quote_ident(n.nspname) as nspname,
-                   quote_ident(p.proname) as fname,
-                   p.oid
-            FROM pg_catalog.pg_proc p
-                JOIN pg_catalog.pg_namespace n
-                ON n.oid = p.pronamespace
-            WHERE n.nspname not like 'pg%'
-              AND n.nspname <> 'information_schema'
-        )
-        SELECT s.nspname as s_schema,
-               s.fname   as s_fname,
-               s.oid     as s_oid,
-               t.nspname as t_schema,
-               t.fname   as t_fname,
-               t.oid     as t_oid
-        FROM (
-             SELECT nspname, fname, oid
-             FROM fun
-             WHERE nspname = source_schema
-        ) AS s
-        LEFT JOIN (
-             SELECT nspname, fname, oid
-             FROM fun
-             WHERE nspname = target_schema
-        ) AS t ON s.fname = t.fname
-        UNION ALL
-        SELECT s.nspname as s_schema,
-               s.fname   as s_fname,
-               s.oid     as s_oid,
-               t.nspname as t_schema,
-               t.fname   as t_fname,
-               t.oid     as t_oid
-        FROM (
-             SELECT nspname, fname, oid
-             FROM fun
-             WHERE nspname = target_schema
-        ) AS t
-        LEFT JOIN (
-             SELECT nspname, fname, oid
-             FROM fun
-             WHERE nspname = source_schema
-        ) AS s ON s.fname = t.fname
-    LOOP
-        RAISE NOTICE
-        INSERT INTO acc_ddl
-        SELECT deploy.reconcile_function(
-            _function.s_schema, _function.s_oid,
-            _function.t_schema, _function.t_oid
-        )
-        RAISE NOTICE 'LOOP FUNCTION: %', _function;
+    RETURN QUERY
+        SELECT d.priority, d.ddl FROM acc_ddl d
+        ORDER BY d.priority ASC;
 
-    END LOOP;
-
--- select l.a, r.a
--- nsp = l, join r
--- union
--- select l.a, r.a
--- nsp = r join l
-
-   RETURN QUERY
-       SELECT d.priority, d.ddl FROM acc_ddl d
-       ORDER BY d.priority ASC;
-
-   DROP TABLE IF EXISTS acc_dll;
+    DROP TABLE IF EXISTS acc_dll;
 END;
 $BODY$
     LANGUAGE plpgsql VOLATILE;

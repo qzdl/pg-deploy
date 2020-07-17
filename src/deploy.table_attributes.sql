@@ -107,6 +107,6 @@ BEGIN
             col_ddl := col_ddl||';';
             RETURN NEXT col_ddl;
         END LOOP; -- _columns
-END
+END;
 $BODY$
     LANGUAGE plpgsql STABLE;
