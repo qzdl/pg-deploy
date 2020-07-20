@@ -17,12 +17,7 @@ CREATE OR REPLACE FUNCTION deploy.reconcile_index(
     target_schema name, target_oid oid)
 RETURNS SETOF TEXT AS
 $BODY$
-DECLARE
-    _index RECORD;
-    ddl TEXT;
 BEGIN
-    RAISE NOTICE 'ARGS %', source_schema||'|'||source_oid||':'||target_schema||'|'||target_oid;
-
     RETURN QUERY
     SELECT DISTINCT
           CASE WHEN t_schema IS NULL THEN
@@ -31,53 +26,8 @@ BEGIN
             replace(pg_get_indexdef(t_oid),
               target_schema||'.', source_schema||'.')
           ELSE '-- LEFT and RIGHT of '''||s_objname||''' are equal' END AS ddl
-    FROM deploy.object_state(source_schema, target_schema, 'deploy.cte_index', source_oid, target_oid);
-    -- FOR _index IN
-    --     WITH indices AS
-    --     (
-    --         SELECT
-    --             indrelid, indexrelid, ic.relname, n.nspname,
-    --             replace(pg_get_indexdef(indexrelid), target_schema||'.', source_schema||'.') AS def
-    --         FROM pg_catalog.pg_index AS i
-    --         INNER JOIN pg_catalog.pg_class AS ic
-    --             ON ic.oid = i.indexrelid
-    --         INNER JOIN pg_catalog.pg_namespace AS n
-    --             ON n.oid = ic.relnamespace
-    --         WHERE i.indrelid = source_oid or i.indrelid = target_oid
-    --     )
-    --     SELECT 'DROP' AS sign, indexrelid, relname, indrelid, def
-    --     FROM indices AS m
-    --     WHERE nspname = source_schema
-    --       AND NOT EXISTS (
-    --         SELECT indexrelid, relname
-    --         FROM indices AS i
-    --         WHERE i.nspname = target_schema
-    --           AND i.relname = m.relname)
-    --     UNION ALL
-    --     SELECT 'DELTA' AS sign, indexrelid, relname, indrelid, def
-    --     FROM indices AS m
-    --     WHERE nspname = target_schema
-    --       AND (
-    --         NOT EXISTS (
-    --           SELECT indexrelid, relname
-    --           FROM indices AS i
-    --           WHERE i.nspname =  source_schema
-    --             AND i.relname = m.relname)
-    --         OR m.def <> (SELECT def
-    --                      FROM indices AS i
-    --                      WHERE i.nspname = source_schema
-    --                      AND i.relname = m.relname))
-    -- LOOP
-    --     RAISE NOTICE 'INDEX LOOP: %', _index;
-
-    --     SELECT INTO ddl
-    --       'DROP INDEX IF EXISTS '||source_schema||'.'||_index.relname||'; ';
-
-    --     IF (_index.sign = 'DELTA') THEN
-    --         ddl := ddl||_index.def||';';
-    --     END IF;
-    --     RETURN NEXT ddl;
-    -- END LOOP;
+    FROM deploy.object_difference(
+        source_schema, target_schema, 'deploy.cte_index', source_oid, target_oid);
 END;
 $BODY$
     LANGUAGE plpgsql STABLE;

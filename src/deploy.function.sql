@@ -16,7 +16,7 @@ BEGIN
             replace(pg_get_functiondef(t_oid),
               target_schema||'.', source_schema||'.')
           ELSE '-- LEFT and RIGHT of '''||s_id||''' are equal' END AS ddl --, COALESCE(s_schema, 'CREATE') as s_schema, s_objname, s_oid, pg_get_functiondef(s_oid) as s_def, pg_get_functions_identity_arguments(s_oid) as s_iargs, s_id, COALESCE(t_schema, 'DROP') as t_schema, t_objname, t_oid, --  ,pg_get_functiondef(t_oid) as t_def, pg_get_function_identity_arguments(t_oid) as t_def, t_id
-    FROM deploy.object_state(source_schema, target_schema, 'deploy.cte_function');
+    FROM deploy.object_difference(source_schema, target_schema, 'deploy.cte_function');
 END;
 $BODY$
     LANGUAGE plpgsql STABLE;
