@@ -11,6 +11,7 @@
 
 */
 
+
 DO $$
 DECLARE
     rdir text :=  '/home/qzdl/git/pg-deploy/';
@@ -39,54 +40,6 @@ COMPLETED at %
 
 END $$;
 
--- now we can make stuff and test whatever
--- check what exists
-\df PUBLIC.*;
-
--- prep environment for diff
-CREATE SCHEMA if NOT EXISTS testr;
-CREATE SCHEMA if NOT EXISTS testp;
-DROP TABLE if EXISTS testr.a;
-DROP TABLE if EXISTS testp.a;
-
--- create objs for diff
-CREATE TABLE testr.a(i int, ii text, iii bit);
-CREATE TABLE testp.a(
-ii text,
-iv numeric CONSTRAINT positive_price CHECK (iv > 0));
-
-
-CREATE TABLE testr.b(ii text);
--- expecting:
--- DROP i
--- DROP iii
--- ADD iv text
-
-SELECT deploy.reconcile_tables('testr', 'testp', 'a', 'a');
-
-
--- expecting:
--- ADD i int
--- ADD iii bit
--- DROP iv
-SELECT PUBLIC.reconsile_desired('testp', 'testr', 'a');
-
-DROP TABLE IF EXISTS testp.con;
-DROP TABLE IF EXISTS testr.con;
-
-CREATE TABLE testp.con(
-    i int constraint yeah CHECK (i>),
-    ii int check (ii > i),
-    iii int check (0>iii)
-);
-
-create table testr.con(i int constraint hmm CHECK(i>ii), ii int, iii int check (0>iii));
-
--- drop yeah; create hmm
--- drop {anon-name}check
-SELECT deploy.reconcile_constraints('testp', 'con', 33910::int,
-                                    'testr', 'con', 33920::int)
-
 DO $$
 DECLARE cmd text;
 BEGIN
@@ -101,8 +54,38 @@ END $$
 
 
 
----
----
+--                                      ██                    ██            ██
+--                                     ░██                   ░░            ░██
+--   █████   ██████  ███████   ██████ ██████ ██████  ██████   ██ ███████  ██████  ██████
+--  ██░░░██ ██░░░░██░░██░░░██ ██░░░░ ░░░██░ ░░██░░█ ░░░░░░██ ░██░░██░░░██░░░██░  ██░░░░
+-- ░██  ░░ ░██   ░██ ░██  ░██░░█████   ░██   ░██ ░   ███████ ░██ ░██  ░██  ░██  ░░█████
+-- ░██   ██░██   ░██ ░██  ░██ ░░░░░██  ░██   ░██    ██░░░░██ ░██ ░██  ░██  ░██   ░░░░░██
+-- ░░█████ ░░██████  ███  ░██ ██████   ░░██ ░███   ░░████████░██ ███  ░██  ░░██  ██████
+--  ░░░░░   ░░░░░░  ░░░   ░░ ░░░░░░     ░░  ░░░     ░░░░░░░░ ░░ ░░░   ░░    ░░  ░░░░░░
+-- constraints
+
+-- expecting:
+--   ADD i int
+--   ADD iii bit
+--   DROP iv
+SELECT PUBLIC.reconsile_desired('testp', 'testr', 'a');
+
+DROP TABLE IF EXISTS testp.con;
+DROP TABLE IF EXISTS testr.con;
+CREATE TABLE testp.con(
+    i int constraint yeah CHECK (i>),
+    ii int check (ii > i),
+    iii int check (0>iii));
+create table testr.con(
+    i int constraint hmm CHECK(i>ii),
+    ii int,
+    iii int check (0>iii));
+
+-- expecting:
+--   drop yeah; create hmm
+--   drop {anon-name}check
+SELECT deploy.reconcile_constraints('testp', 'con', 33910::int,
+                                    'testr', 'con', 33920::int)
 
 SELECT conname, pg_get_constraintdef(c.oid) as constrainddef
 FROM pg_constraint c
@@ -113,12 +96,10 @@ WHERE conrelid=(
         FROM pg_class
         WHERE relname = table_rec.relname
             AND relnamespace = (SELECT ns.oid FROM pg_namespace ns WHERE ns.nspname = p_schema_name)
-    ) AND attname='tableoid'
-
-                    )
+    ) AND attname='tableoid')
 
 
-
+-- get oids for n constraints across two schemata
 SELECT 'testp.con', oid
 FROM pg_class
 WHERE relname = 'con'
@@ -129,64 +110,39 @@ FROM pg_class
 WHERE relname = 'con'
     AND relnamespace = (SELECT ns.oid FROM pg_namespace ns WHERE ns.nspname = 'testr')
 
---
--- Index; test column change
-
-DROP TABLE IF EXISTS testp.idx;
-DROP TABLE IF EXISTS testr.idx;
-
-CREATE TABLE testp.idx (
-    a text,
-    b int,
-    c boolean,
-    d uuid
-);
-
-CREATE INDEX idx_hash on testp.idx using hash (d);
-
-CREATE TABLE testr.idx (
-    a text,
-    b int,
-    c boolean,
-    d uuid
-);
-
-CREATE INDEX idx_hash on testr.idx using hash (b);
-
 -- the difference between TEXT and NAME!!!!!! in psql processing, text is
 -- coalesced, but in function execution, they aren't!! This was noticed in an
 -- iteration of `deploy.reconcile_schema`, where the args were ::text, and the
 -- query below (from the arguments) was just buggin outon some undefined
 -- behaviour. If in doubt, `pg_typeof()` and explicit typing!
-
-       WITH candidates as (
-            SELECT c.relname, c.oid, n.nspname
-            FROM pg_catalog.pg_class c
-                 LEFT JOIN pg_catalog.pg_namespace n
-                     ON n.oid = c.relnamespace
-            WHERE relkind = 'r'
-            AND (n.nspname = 'testr' OR n.nspname = 'testp')
-            -- AND relname~ ('^('||object_name||')$')
-            ORDER BY c.relname
-        )
-        SELECT
-            active.nspname as s_schema,
-            active.relname as s_relname,
-            active.oid     as s_oid,
-            target.nspname as t_schema,
-            target.relname as t_relname,
-            target.oid     as t_oid
-        FROM (
-            SELECT nspname, relname, oid
-            FROM candidates
-            WHERE nspname = 'testp'
-        ) AS active
-        LEFT JOIN (
-            SELECT nspname, relname, oid
-            FROM candidates
-            WHERE nspname = 'testr'
-        ) AS target
-        ON active.relname = target.relname
+WITH candidates as (
+     SELECT c.relname, c.oid, n.nspname
+     FROM pg_catalog.pg_class c
+          LEFT JOIN pg_catalog.pg_namespace n
+              ON n.oid = c.relnamespace
+     WHERE relkind = 'r'
+     AND (n.nspname = 'testr' OR n.nspname = 'testp')
+     -- AND relname~ ('^('||object_name||')$')
+     ORDER BY c.relname
+ )
+ SELECT
+     active.nspname as s_schema,
+     active.relname as s_relname,
+     active.oid     as s_oid,
+     target.nspname as t_schema,
+     target.relname as t_relname,
+     target.oid     as t_oid
+ FROM (
+     SELECT nspname, relname, oid
+     FROM candidates
+     WHERE nspname = 'testp'
+ ) AS active
+ LEFT JOIN (
+     SELECT nspname, relname, oid
+     FROM candidates
+     WHERE nspname = 'testr'
+ ) AS target
+ ON active.relname = target.relname
 
 
 -- indices; LEFT RIGHT null problem if we use the set of indices for RELATION
@@ -228,10 +184,18 @@ WHERE nspname = 'testr'::name
                  WHERE i.nspname = 'testp'::name
                    AND i.relname = m.relname))
 
-
--- state table showing LEFT and RIGHT states across the above
--- this is to be used as the default core logic to reconcile
--- 'stateless' objects; functions, triggers, indices
+--                  ██              ██               ██
+--                 ░██             ░██              ░██
+--  ██████  █████  ░██     ██████ ██████  ██████   ██████  █████   ██████
+-- ░░██░░█ ██░░░██ ░██    ██░░░░ ░░░██░  ░░░░░░██ ░░░██░  ██░░░██ ██░░░░
+--  ░██ ░ ░███████ ░██   ░░█████   ░██    ███████   ░██  ░███████░░█████
+--  ░██   ░██░░░░  ░██    ░░░░░██  ░██   ██░░░░██   ░██  ░██░░░░  ░░░░░██
+-- ░███   ░░██████ ███    ██████   ░░██ ░░████████  ░░██ ░░██████ ██████
+-- ░░░     ░░░░░░ ░░░    ░░░░░░     ░░   ░░░░░░░░    ░░   ░░░░░░ ░░░░░░
+-- rel states:
+--   state table showing LEFT and RIGHT states across the above
+--   this is to be used as the default core logic to reconcile
+--   'stateless' objects; functions, triggers, indices
 
 with fun as (
     SELECT quote_ident(n.nspname) as nspname,
@@ -288,12 +252,27 @@ FROM (
     LEFT JOIN ss as s ON s.id = t.id
 ) as AAA;
 
-
--- so, would it be possible to have a CTE as a function? if so, a reference to
+--  ██      ██         ██                                            ██
+-- ░██     ░░   █████ ░██                                           ░██
+-- ░██      ██ ██░░░██░██       █████  ██████    ██████  ██████     ░██  █████   ██████
+-- ░██████ ░██░██  ░██░██████  ██░░░██░░██░░█   ██░░░░██░░██░░█  ██████ ██░░░██ ░░██░░█
+-- ░██░░░██░██░░██████░██░░░██░███████ ░██ ░   ░██   ░██ ░██ ░  ██░░░██░███████  ░██ ░
+-- ░██  ░██░██ ░░░░░██░██  ░██░██░░░░  ░██     ░██   ░██ ░██   ░██  ░██░██░░░░   ░██
+-- ░██  ░██░██  █████ ░██  ░██░░██████░███     ░░██████ ░███   ░░██████░░██████ ░███
+-- ░░   ░░ ░░  ░░░░░  ░░   ░░  ░░░░░░ ░░░       ░░░░░░  ░░░     ░░░░░░  ░░░░░░  ░░░
+-- higher order:
+--   A generalisation of the diff logic, based on `id` column of CTE as identifier
+-- for the object, irrespective of the schema to which it belongs. An example of
+-- this would the function `pg_get_function_identity` from `pg_catalog`.
+--   So, would it be possible to have a CTE as a function? if so, a reference to
 -- an arbitrary function can be given, which gives some 'higher order'
 -- functionality. I will try to achieve this without dynamic plsql if possible.
--- * WHERE attribute IN ()
--- * WHERE attribute IN <vector> ??
+
+-- Use ~select * from my_func()~ as opposed to ~select my_func()~; the latter
+-- will not intern the column identifiers, so given components ~RETURNS
+-- TABLE(right text, left text)~, and ~RETURN QUERY SELECT 'a' as left, 'b' as
+-- right~, only the ~select *~ will allow the consequent query to use qualified
+-- names ~<cte>.left, <cte>.right~.
 drop function if exists deploy.function_cte(source_schema name, target_schema name);
 create function deploy.function_cte(source_schema name, target_schema name)
 RETURNS table(nspname name, objname name, oid oid, id text) AS
@@ -385,3 +364,7 @@ BEGIN
         LEFT JOIN ss as s ON s.id = t.id
     ) as AAA', cte_fun, source_schema, target_schema) USING source_schema, target_schema;
 END; $BODY$ LANGUAGE plpgsql STABLE;
+
+
+-- triggers:
+-- get triggers for REL in SCHEMA

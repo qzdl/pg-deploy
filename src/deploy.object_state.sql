@@ -9,15 +9,22 @@ DROP FUNCTION IF EXISTS deploy.object_state(
     source_schema name, target_schema name, cte_fun text);
 
 CREATE OR REPLACE FUNCTION deploy.object_state(
-    source_schema name, target_schema name, cte_fun text)
+    source_schema name, target_schema name, cte_fun text,
+    soid oid default NULL, toid oid default NULL)
 RETURNS TABLE(
     s_schema name, s_objname name, s_oid oid, s_id text,
     t_schema name, t_objname name, t_oid oid, t_id text
 ) AS $BODY$
+DECLARE
+    oids text := '';
 BEGIN
+    IF (soid IS NOT NULL AND toid IS NOT NULL) THEN
+        oids := ' ,'||soid||','||toid;
+    END IF;
+
     RETURN QUERY EXECUTE FORMAT('
     with fun as (
-        select * from %1$s($1, $2)
+        select * from %1$s($1, $2'||oids||')
     )
     SELECT DISTINCT
         s_schema, s_objname, s_oid, s_id,
@@ -56,4 +63,4 @@ BEGIN
     ) as AAA', cte_fun, source_schema, target_schema) USING source_schema, target_schema;
 END; $BODY$ LANGUAGE plpgsql STABLE;
 
-SELECT * FROM deploy.object_state('testp', 'testr', 'deploy.cte_function');
+SELECT * FROM deploy.object_state('testp'::name, 'testr'::name, 'deploy.cte_function'::text);
