@@ -21,4 +21,9 @@ DROP TABLE if EXISTS testp.a;
 CREATE TABLE testr.a(i int, ii text, iii bit);
 CREATE TABLE testp.a(ii text, iv numeric CONSTRAINT positive_price CHECK (iv > 0));
 
-SELECT deploy.reconcile_tables('testr', 'testp', 'a', 'a');
+insert into res
+select 1, 'expecting drop i,iii; add iv text' union
+SELECT 1.1 deploy.reconcile_tables('testr', 'testp', 'a', 'a');
+
+
+select * from res order by idx asc, ddl desc;
