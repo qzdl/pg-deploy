@@ -1,7 +1,8 @@
 /*
     reconcile_constraints:
-    - diff of constraints for tables through anti-join
-    - mark for ALTER
+    - diff of constraints for tables through general logic
+    - mark for ALTER / DROP
+    - barf a sensible comment for that which remains unchanged
 
 */
 
