@@ -3,8 +3,6 @@
     - diff of constraints for tables through anti-join
     - mark for ALTER
 
-
-
 */
 
 DROP FUNCTION IF EXISTS deploy.reconcile_constraints(
@@ -20,46 +18,26 @@ DECLARE
     _constraints record;
     ddl text;
 BEGIN
--- _constraints, added at the end, also requires a diff
-    FOR _constraints IN
-        WITH signs AS (
-            SELECT
-                'DROP' AS sign,
-                conname, pg_get_constraintdef(c.oid) as constraintdef, c.oid as conoid
-            FROM pg_constraint c
-            WHERE conrelid = (
-                SELECT attrelid FROM pg_attribute
-                WHERE attrelid = source_oid
-                  AND attname='tableoid'
-            )
-            UNION
-            SELECT
-                'ADD' as sign,
-                conname, pg_get_constraintdef(c.oid) as constraintdef, c.oid as conoid
-            FROM pg_constraint c
-            WHERE conrelid = (
-                SELECT attrelid FROM pg_attribute
-                WHERE attrelid = target_oid
-                  AND attname='tableoid'
-            )
-        ) -- cte
-        SELECT sign, conname, constraintdef, conoid
-        FROM signs
-    LOOP
-        RAISE NOTICE 'LOOP CONSTRAINT: %', _constraints;
-
-        IF _constraints.sign = 'DROP' THEN
-            ddl := 'ALTER TABLE '||source_schema||'.'||source_rel
-                   ||' DROP CONSTRAINT '||_constraints.conname||'; ';
-        END IF;
-
-        IF _constraints.sign = 'ADD' THEN
-
-            ddl := 'ALTER TABLE '||source_schema||'.'||source_rel
-                   ||' ADD CONSTRAINT '||_constraints.conname||' '||_constraints.constraintdef;
-        END IF;
-        RETURN NEXT ddl;
-    END LOOP; -- _constraints
-END
+    RETURN QUERY
+    SELECT DISTINCT
+        CASE WHEN t_schema IS NULL THEN
+          'ALTER TABLE '||source_schema||'.'||source_rel
+          ||' DROP CONSTRAINT IF EXISTS '||s_objname||';'
+             WHEN s_schema IS NULL THEN
+          'ALTER TABLE '||source_schema||'.'||source_rel
+          ||' ADD CONSTRAINT '||t_objname||' '||pg_get_constraintdef(t_oid)||';'
+             ELSE
+          '-- LEFT and RIGHT of '''||s_id||''' are equal'
+        END AS ddl
+    FROM deploy.object_difference(
+      source_schema, target_schema,
+      'deploy.cte_constraint',
+      source_oid, target_oid)
+    order by ddl desc;
+END;
 $BODY$
     LANGUAGE plpgsql STABLE;
+
+select * from deploy.reconcile_constraints(
+    'testp'::name, 'con'::name, (SELECT c.oid FROM pg_class c INNER JOIN pg_namespace n ON n.oid = c.relnamespace and c.relname = 'con' and n.nspname = 'testp'),
+    'testr'::name, 'con'::name, (SELECT c.oid FROM pg_class c INNER JOIN pg_namespace n ON n.oid = c.relnamespace and c.relname = 'con' and n.nspname = 'testr'));
