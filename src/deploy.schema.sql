@@ -49,8 +49,16 @@ BEGIN
         ON active.relname = target.relname
     LOOP
         RAISE NOTICE 'LOOP TOPLEVEL: %', _table;
+        -- relations
+        IF _table.t_schema IS NULL THEN
+           -- drop cascade? and break from loop
+        END IF;
 
-        -- tables
+        IF _table.s_schema IS NULL THEN
+          boo
+        END IF;
+
+        -- attributes
         ---------
         INSERT INTO acc_ddl
         SELECT 1, deploy.reconcile_table_attributes(

@@ -25,58 +25,8 @@ BEGIN
 END;
 $BODY$
     LANGUAGE plpgsql STABLE;
-
-
+    
 select * from deploy.cte_constraint(
     'testp'::name, 'testr'::name,
     (SELECT c.oid FROM pg_class c INNER JOIN pg_namespace n ON n.oid = c.relnamespace and c.relname = 'con' and n.nspname = 'testp'),
     (SELECT c.oid FROM pg_class c INNER JOIN pg_namespace n ON n.oid = c.relnamespace and c.relname = 'con' and n.nspname = 'testr'));
-
---  nspname |    objname    |  oid  |        id
--- ---------+---------------+-------+-------------------
---  testp   | yeah          | 36050 | CHECK ((i > 0))
---  testp   | yeah          | 36050 | CHECK ((i > 0))
---  testp   | yeah          | 36050 | CHECK ((i > 0))
---  testp   | yeah          | 36050 | CHECK ((i > 0))
---  testp   | yeah          | 36050 | CHECK ((i > 0))
---  testp   | yeah          | 36050 | CHECK ((i > 0))
---  testp   | yeah          | 36050 | CHECK ((i > 0))
---  testp   | yeah          | 36050 | CHECK ((i > 0))
---  testp   | yeah          | 36050 | CHECK ((i > 0))
---  testp   | con_check     | 36051 | CHECK ((ii > i))
---  testp   | con_check     | 36051 | CHECK ((ii > i))
---  testp   | con_check     | 36051 | CHECK ((ii > i))
---  testp   | con_check     | 36051 | CHECK ((ii > i))
---  testp   | con_check     | 36051 | CHECK ((ii > i))
---  testp   | con_check     | 36051 | CHECK ((ii > i))
---  testp   | con_check     | 36051 | CHECK ((ii > i))
---  testp   | con_check     | 36051 | CHECK ((ii > i))
---  testp   | con_check     | 36051 | CHECK ((ii > i))
---  testp   | con_iii_check | 36052 | CHECK ((0 > iii))
---  testp   | con_iii_check | 36052 | CHECK ((0 > iii))
---  testp   | con_iii_check | 36052 | CHECK ((0 > iii))
---  testp   | con_iii_check | 36052 | CHECK ((0 > iii))
---  testp   | con_iii_check | 36052 | CHECK ((0 > iii))
---  testp   | con_iii_check | 36052 | CHECK ((0 > iii))
---  testp   | con_iii_check | 36052 | CHECK ((0 > iii))
---  testp   | con_iii_check | 36052 | CHECK ((0 > iii))
---  testp   | con_iii_check | 36052 | CHECK ((0 > iii))
---  testr   | hmm           | 36056 | CHECK ((i > ii))
---  testr   | hmm           | 36056 | CHECK ((i > ii))
---  testr   | hmm           | 36056 | CHECK ((i > ii))
---  testr   | hmm           | 36056 | CHECK ((i > ii))
---  testr   | hmm           | 36056 | CHECK ((i > ii))
---  testr   | hmm           | 36056 | CHECK ((i > ii))
---  testr   | hmm           | 36056 | CHECK ((i > ii))
---  testr   | hmm           | 36056 | CHECK ((i > ii))
---  testr   | hmm           | 36056 | CHECK ((i > ii))
---  testr   | con_iii_check | 36057 | CHECK ((0 > iii))
---  testr   | con_iii_check | 36057 | CHECK ((0 > iii))
---  testr   | con_iii_check | 36057 | CHECK ((0 > iii))
---  testr   | con_iii_check | 36057 | CHECK ((0 > iii))
---  testr   | con_iii_check | 36057 | CHECK ((0 > iii))
---  testr   | con_iii_check | 36057 | CHECK ((0 > iii))
---  testr   | con_iii_check | 36057 | CHECK ((0 > iii))
---  testr   | con_iii_check | 36057 | CHECK ((0 > iii))
---  testr   | con_iii_check | 36057 | CHECK ((0 > iii))
--- (45 rows)

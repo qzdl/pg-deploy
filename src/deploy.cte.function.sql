@@ -12,7 +12,7 @@ BEGIN
         n.nspname AS nspname,
         p.proname AS objname,
         p.oid     AS oid,
-        p.proname||'('||pg_get_function_identity_arguments(p.oid)||')'
+        replace(pg_get_functiondef(p.oid), target_schema||'.', source_schema||'.')
                   AS id
     FROM pg_catalog.pg_proc p
         JOIN pg_catalog.pg_namespace n
@@ -25,4 +25,4 @@ END;
 $BODY$
     LANGUAGE plpgsql STABLE;
 
-SELECT * FROM deploy.cte_function('testp', 'testr');
+SELECT *  FROM deploy.cte_function('testp', 'testr');
