@@ -23,7 +23,6 @@ CREATE TABLE testp.a(ii text, iv numeric CONSTRAINT positive_price CHECK (iv > 0
 
 insert into res
 select 1, 'expecting drop i,iii; add iv text' union
-SELECT 1.1 deploy.reconcile_tables('testr', 'testp', 'a', 'a');
-
+SELECT 1.1 deploy.reconcile_table_attributes('testr', 'testp', 'a', 'a');
 
 select * from res order by idx asc, ddl desc;

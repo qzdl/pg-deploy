@@ -3,86 +3,30 @@ CREATE SCHEMA IF NOT EXISTS report;
 DROP VIEW IF EXISTS report.dependency;
 CREATE OR REPLACE VIEW report.dependency AS
 WITH RECURSIVE preference AS (
-  SELECT 10 AS max_depth  -- The deeper the recursion goes, the slower it performs.
+  SELECT 10 AS max_depth
     , 16384 AS min_oid -- user objects only
     , '^(londiste|pgq|pg_toast)'::text AS schema_exclusion
     , '^pg_(conversion|language|ts_(dict|template))'::text AS class_exclusion
-    , '{"SCHEMA":"00", "TABLE":"01", "CONSTRAINT":"02", "DEFAULT":"03",
+    , '{"SCHEMA":"00", "TABLE":"01", "TABLE CONSTRAINT":"02", "DEFAULT VALUE":"03",
         "INDEX":"05", "SEQUENCE":"06", "TRIGGER":"07", "FUNCTION":"08",
-        "VIEW":"10", "MVIEW":"11", "FOREIGN":"12"}'::json AS type_ranks
+        "VIEW":"10", "MATERIALIZED VIEW":"11", "FOREIGN TABLE":"12"}'::json AS type_sort_orders
 )
 , dependency_pair AS (
-    WITH relation_object AS (
-        SELECT oid
-        , oid::regclass::text AS object_name
-        , CASE relkind
-              WHEN 'r' THEN 'TABLE'::text
-              WHEN 'i' THEN 'INDEX'::text
-              WHEN 'S' THEN 'SEQUENCE'::text
-              WHEN 'v' THEN 'VIEW'::text
-              WHEN 'm' THEN 'MVIEW'::text
-              WHEN 'c' THEN 'TYPE'::text      -- COMPOSITE type
-              WHEN 't' THEN 'TOAST'::text
-              WHEN 'f' THEN 'FOREIGN'::text
-          END AS object_type
-        FROM pg_class
-    )
-    SELECT
-        objid,
-        CASE classid
-            WHEN 'pg_amop'::regclass THEN 'ACCESS METHOD OPERATOR'
-            WHEN 'pg_amproc'::regclass THEN 'ACCESS METHOD PROCEDURE'
-            WHEN 'pg_attrdef'::regclass THEN 'DEFAULT'
-            WHEN 'pg_cast'::regclass THEN 'CAST'
-            WHEN 'pg_class'::regclass THEN rel.object_type
-            WHEN 'pg_constraint'::regclass THEN 'CONSTRAINT'
-            WHEN 'pg_extension'::regclass THEN 'EXTENSION'
-            WHEN 'pg_namespace'::regclass THEN 'SCHEMA'
-            WHEN 'pg_opclass'::regclass THEN 'OPERATOR CLASS'
-            WHEN 'pg_operator'::regclass THEN 'OPERATOR'
-            WHEN 'pg_opfamily'::regclass THEN 'OPERATOR FAMILY'
-            WHEN 'pg_proc'::regclass THEN 'FUNCTION'
-            WHEN 'pg_rewrite'::regclass THEN (SELECT concat(object_type,' RULE') FROM pg_rewrite e JOIN relation_object r ON r.oid = ev_class WHERE e.oid = objid)
-            WHEN 'pg_trigger'::regclass THEN 'TRIGGER'
-            WHEN 'pg_type'::regclass THEN 'TYPE'
-            ELSE classid::regclass::text
-        END AS object_type,
-        CASE classid
-            WHEN 'pg_attrdef'::regclass THEN (SELECT attname FROM pg_attrdef d JOIN pg_attribute c ON (c.attrelid,c.attnum)=(d.adrelid,d.adnum) WHERE d.oid = objid)
-            WHEN 'pg_cast'::regclass THEN (SELECT concat(castsource::regtype::text, ' AS ', casttarget::regtype::text,' WITH ', castfunc::regprocedure::text) FROM pg_cast WHERE oid = objid)
-            WHEN 'pg_class'::regclass THEN rel.object_name
-            WHEN 'pg_constraint'::regclass THEN (SELECT conname FROM pg_constraint WHERE oid = objid)
-            WHEN 'pg_extension'::regclass THEN (SELECT extname FROM pg_extension WHERE oid = objid)
-            WHEN 'pg_namespace'::regclass THEN (SELECT nspname FROM pg_namespace WHERE oid = objid)
-            WHEN 'pg_opclass'::regclass THEN (SELECT opcname FROM pg_opclass WHERE oid = objid)
-            WHEN 'pg_operator'::regclass THEN (SELECT oprname FROM pg_operator WHERE oid = objid)
-            WHEN 'pg_opfamily'::regclass THEN (SELECT opfname FROM pg_opfamily WHERE oid = objid)
-            WHEN 'pg_proc'::regclass THEN objid::regprocedure::text
-            WHEN 'pg_rewrite'::regclass THEN (SELECT ev_class::regclass::text FROM pg_rewrite WHERE oid = objid)
-            WHEN 'pg_trigger'::regclass THEN (SELECT tgname FROM pg_trigger WHERE oid = objid)
-            WHEN 'pg_type'::regclass THEN objid::regtype::text
-            ELSE objid::text
-        END AS object_name,
-        array_agg(objsubid ORDER BY objsubid) AS objsubids,
-        refobjid,
-        CASE refclassid
-            WHEN 'pg_namespace'::regclass THEN 'SCHEMA'
-            WHEN 'pg_class'::regclass THEN rrel.object_type
-            WHEN 'pg_opfamily'::regclass THEN 'OPERATOR FAMILY'
-            WHEN 'pg_proc'::regclass THEN 'FUNCTION'
-            WHEN 'pg_type'::regclass THEN 'TYPE'
-            ELSE refclassid::text
-        END AS refobj_type,
-        CASE refclassid
-            WHEN 'pg_namespace'::regclass THEN (SELECT nspname FROM pg_namespace WHERE oid = refobjid)
-            WHEN 'pg_class'::regclass THEN rrel.object_name
-            WHEN 'pg_opfamily'::regclass THEN (SELECT opfname FROM pg_opfamily WHERE oid = refobjid)
-            WHEN 'pg_proc'::regclass THEN refobjid::regprocedure::text
-            WHEN 'pg_type'::regclass THEN refobjid::regtype::text
-            ELSE refobjid::text
-        END AS refobj_name,
-        array_agg(refobjsubid ORDER BY refobjsubid) AS refobjsubids,
-        CASE deptype
+    SELECT objid
+      , array_agg(objsubid ORDER BY objsubid) AS objsubids
+      , upper(obj.type) AS object_type
+      , coalesce(obj.schema, substring(obj.identity, E'(\\w+?)\\.'), '') AS object_schema
+      , obj.name AS object_name
+      , obj.identity AS object_identity
+      , refobjid
+      , array_agg(refobjsubid ORDER BY refobjsubid) AS refobjsubids
+      , upper(refobj.type) AS refobj_type
+      , coalesce(CASE WHEN refobj.type='schema' THEN refobj.identity
+                                                ELSE refobj.schema END
+          , substring(refobj.identity, E'(\\w+?)\\.'), '') AS refobj_schema
+      , refobj.name AS refobj_name
+      , refobj.identity AS refobj_identity
+      , CASE deptype
             WHEN 'n' THEN 'normal'
             WHEN 'a' THEN 'automatic'
             WHEN 'i' THEN 'internal'
@@ -90,50 +34,139 @@ WITH RECURSIVE preference AS (
             WHEN 'p' THEN 'pinned'
         END AS dependency_type
     FROM pg_depend dep
-    LEFT JOIN relation_object rel ON rel.oid = dep.objid
-    LEFT JOIN relation_object rrel ON rrel.oid = dep.refobjid
-    , preference
+      , LATERAL pg_identify_object(classid, objid, 0) AS obj
+      , LATERAL pg_identify_object(refclassid, refobjid, 0) AS refobj
+      , preference
     WHERE deptype = ANY('{n,a}')
     AND objid >= preference.min_oid
     AND (refobjid >= preference.min_oid OR refobjid = 2200) -- need public schema as root node
-    AND classid::regclass::text !~ preference.class_exclusion
-    AND refclassid::regclass::text !~ preference.class_exclusion
-    AND coalesce(substring(objid::regclass::text, E'^(\\w+)\\.'),'') !~ preference.schema_exclusion
-    AND coalesce(substring(refobjid::regclass::text, E'^(\\w+)\\.'),'') !~ preference.schema_exclusion
-    GROUP BY classid, objid, refclassid, refobjid, deptype, rel.object_name, rel.object_type, rrel.object_name, rrel.object_type
+    AND coalesce(obj.schema, substring(obj.identity, E'(\\w+?)\\.'), '') !~ preference.schema_exclusion
+    AND coalesce(CASE WHEN refobj.type='schema' THEN refobj.identity
+                                                ELSE refobj.schema END
+          , substring(refobj.identity, E'(\\w+?)\\.'), '') !~ preference.schema_exclusion
+    GROUP BY objid, obj.type, obj.schema, obj.name, obj.identity
+      , refobjid, refobj.type, refobj.schema, refobj.name, refobj.identity, deptype
 )
 , dependency_hierarchy AS (
     SELECT DISTINCT
         0 AS level,
         refobjid AS objid,
         refobj_type AS object_type,
-        refobj_name AS object_name,
+        refobj_identity AS object_identity,
         --refobjsubids AS objsubids,
         NULL::text AS dependency_type,
         ARRAY[refobjid] AS dependency_chain,
-        ARRAY[concat(preference.type_ranks->>refobj_type,refobj_type,' ',refobj_name)] AS dependency_name_chain
+        ARRAY[concat(preference.type_sort_orders->>refobj_type,refobj_type,':',refobj_identity)] AS dependency_sort_chain
     FROM dependency_pair root
     , preference
     WHERE NOT EXISTS
        (SELECT 'x' FROM dependency_pair branch WHERE branch.objid = root.refobjid)
-    AND refobj_name !~ preference.schema_exclusion
+    AND refobj_schema !~ preference.schema_exclusion
     UNION ALL
     SELECT
         level + 1 AS level,
         child.objid,
         child.object_type,
-        child.object_name,
+        child.object_identity,
         --child.objsubids,
         child.dependency_type,
         parent.dependency_chain || child.objid,
-        parent.dependency_name_chain || concat(preference.type_ranks->>child.object_type,child.object_type,' ',child.object_name)
+        parent.dependency_sort_chain || concat(preference.type_sort_orders->>child.object_type,child.object_type,':',child.object_identity)
     FROM dependency_pair child
     JOIN dependency_hierarchy parent ON (parent.objid = child.refobjid)
     , preference
     WHERE level < preference.max_depth
-    AND child.object_name !~ preference.schema_exclusion
-    AND child.refobj_name !~ preference.schema_exclusion
+    AND child.object_schema !~ preference.schema_exclusion
+    AND child.refobj_schema !~ preference.schema_exclusion
     AND NOT (child.objid = ANY(parent.dependency_chain)) -- prevent circular referencing
 )
 SELECT * FROM dependency_hierarchy
 ORDER BY dependency_chain ;
+
+
+-- Procedure to report depedency tree using regexp search pattern (relation-only)
+CREATE OR REPLACE FUNCTION report.dependency_tree(search_pattern text)
+  RETURNS TABLE(dependency_tree text)
+  SECURITY DEFINER LANGUAGE SQL
+  AS $function$
+WITH target AS (
+  SELECT objid, dependency_chain
+  FROM report.dependency
+  WHERE object_identity ~ search_pattern
+)
+, list AS (
+  SELECT
+    format('%*s%s %s', -4*level
+          , CASE WHEN object_identity ~ search_pattern THEN '*' END
+          , object_type, object_identity
+    ) AS dependency_tree
+  , dependency_sort_chain
+  FROM target
+  JOIN report.dependency report
+    ON report.objid = ANY(target.dependency_chain) -- root-bound chain
+    OR target.objid = ANY(report.dependency_chain) -- leaf-bound chain
+  WHERE length(search_pattern) > 0
+  -- Do NOT waste search time on blank/null search_pattern.
+  UNION
+  -- Query the entire dependencies instead.
+  SELECT
+    format('%*s%s %s', 4*level, '', object_type, object_identity) AS dependency_tree
+  , dependency_sort_chain
+  FROM report.dependency
+  WHERE length(coalesce(search_pattern,'')) = 0
+)
+SELECT dependency_tree FROM list
+ORDER BY dependency_sort_chain;
+$function$ ;
+
+-- Procedure to report depedency tree by specific relation name(s) (in text array)
+CREATE OR REPLACE FUNCTION report.dependency_tree(object_names text[])
+  RETURNS TABLE(dependency_tree text)
+  SECURITY DEFINER LANGUAGE SQL
+  AS $function$
+WITH target AS (
+  SELECT objid, dependency_chain
+  FROM report.dependency
+  JOIN unnest(object_names) AS target(objname) ON objid = objname::regclass
+)
+, list AS (
+  SELECT DISTINCT
+    format('%*s%s %s', -4*level
+          , CASE WHEN object_identity = ANY(object_names) THEN '*' END
+          , object_type, object_identity
+    ) AS dependency_tree
+  , dependency_sort_chain
+  FROM target
+  JOIN report.dependency report
+    ON report.objid = ANY(target.dependency_chain) -- root-bound chain
+    OR target.objid = ANY(report.dependency_chain) -- leaf-bound chain
+)
+SELECT dependency_tree FROM list
+ORDER BY dependency_sort_chain;
+$function$ ;
+
+-- Procedure to report depedency tree by oid
+CREATE OR REPLACE FUNCTION report.dependency_tree(object_ids oid[])
+  RETURNS TABLE(dependency_tree text)
+  SECURITY DEFINER LANGUAGE SQL
+  AS $function$
+WITH target AS (
+  SELECT objid, dependency_chain
+  FROM report.dependency
+  JOIN unnest(object_ids) AS target(objid) USING (objid)
+)
+, list AS (
+  SELECT DISTINCT
+    format('%*s%s %s', -4*level
+          , CASE WHEN report.objid = ANY(object_ids) THEN '*' END
+          , object_type, object_identity
+    ) AS dependency_tree
+  , dependency_sort_chain
+  FROM target
+  JOIN report.dependency report
+    ON report.objid = ANY(target.dependency_chain) -- root-bound chain
+    OR target.objid = ANY(report.dependency_chain) -- leaf-bound chain
+)
+SELECT dependency_tree FROM list
+ORDER BY dependency_sort_chain;
+$function$ ;

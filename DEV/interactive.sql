@@ -368,3 +368,4 @@ END; $BODY$ LANGUAGE plpgsql STABLE;
 
 -- triggers:
 -- get triggers for REL in SCHEMA
+--

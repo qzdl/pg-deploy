@@ -18,6 +18,7 @@ alter table testp.tdep add CONSTRAINT cdep CHECK (a > testp.fdep(a) -1);
 -- i think the view can be interrogated here; walk the tree down and collect object definitions
 select * from report.dependency_tree(ARRAY((select oid from pg_proc where proname = 'fdep')))
 
+--- ROW TRIGGER DEPENDENCY
 
 --- EVENT TRIGGER DEPENDENCY
 CREATE OR REPLACE FUNCTION testp.etdep() RETURNS event_trigger AS $$
