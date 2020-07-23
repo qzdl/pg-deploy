@@ -1,4 +1,4 @@
-drop FUNCTION if exists deploy.reconcile_table_attributes (
+DROP FUNCTION if exists deploy.reconcile_table_attributes (
     source_schema name, source_rel name, source_oid oid,
     target_schema name, target_rel name, target_oid oid);
 
@@ -11,102 +11,56 @@ DECLARE
     col_ddl text;
     _columns record;
 BEGIN
-        -- get column info (name, type, NULL, constraints, defaults)
-        FOR _columns IN
-        -- compute diff for source->target
-        -- FIXME: potential optimisation (information_schema -> raw catalog)
-        -- FIXME: antijoin diff  can be tidied up by passing oids in
-            with attributes as (
-                select 'DROP' as sign,
-                       r_source.column_name as col
-                from information_schema.columns as r_source
-                where table_name = source_rel  -- to yield d0
-                  and table_schema = source_schema
-                  and not exists (
-                    select column_name
-                    from information_schema.columns as r_target
-                    where r_target.table_name = target_rel
-                      and r_target.table_schema = target_schema
-                      and r_source.column_name = r_target.column_name) -- AJ predicate
-                union all -- inverse for `ADD'
-                select 'ADD' as sign,
-                       a_target.column_name as col
-                from information_schema.columns as a_target
-                where table_name = target_rel       -- to yield d1
-                  and table_schema = target_schema
-                  and not exists (
-                    select column_name
-                    from information_schema.columns as a_source
-                    where a_source.table_name = source_rel
-                      and a_source.table_schema = source_schema
-                      and a_source.column_name = a_target.column_name) -- AJ predicate
-            )
-            SELECT
-                attributes.sign,
-                attributes.col,
-                b.nspname as schema_name,
-                b.relname as table_name,
-                a.attname as column_name,
-                pg_catalog.format_type(a.atttypid, a.atttypmod) as column_type,
-                -- defaults; FIXME: maybe throw into CTE to reduce duplication of query logic?
-                CASE WHEN (
-                    SELECT substring(pg_catalog.pg_get_expr(d.adbin, d.adrelid) for 128)
-                    FROM   pg_catalog.pg_attrdef d
-                    WHERE  d.adrelid = a.attrelid AND d.adnum = a.attnum AND a.atthasdef
-                ) IS NOT NULL THEN
-                    'DEFAULT '|| (
-                      SELECT substring(pg_catalog.pg_get_expr(d.adbin, d.adrelid) for 128)
-                      FROM   pg_catalog.pg_attrdef d
-                      WHERE  d.adrelid = a.attrelid AND d.adnum = a.attnum AND a.atthasdef
-                ) ELSE ''
-                END as column_default_value,
-                CASE WHEN a.attnotnull = true THEN
-                    'NOT NULL'
-                ELSE
-                    'NULL'
-                END AS column_not_null,
-                a.attnum AS attnum,
-                e.max_attnum AS max_attnum
-            FROM
-                pg_catalog.pg_attribute a
-                LEFT JOIN attributes
-                    ON a.attname = attributes.col
-                INNER JOIN (
-                    SELECT c.oid,
-                           n.nspname,
-                           c.relname
-                    FROM pg_catalog.pg_class c
-                    LEFT JOIN pg_catalog.pg_namespace n
-                      ON n.oid = c.relnamespace
-                    WHERE c.oid = _tables.oid
-                    ORDER BY 2, 3
-                ) AS b ON a.attrelid = b.oid
-                INNER JOIN (
-                    SELECT a.attrelid,
-                           MAX(a.attnum) AS max_attnum
-                    FROM pg_catalog.pg_attribute a
-                    WHERE a.attnum > 0
-                      AND NOT a.attisdropped
-                    GROUP BY a.attrelid
-                ) AS e ON a.attrelid = e.attrelid
-            WHERE a.attnum > 0
-              AND NOT a.attisdropped
-              AND signs.sign IS NOT NULL
-            ORDER BY a.attnum
-        LOOP -- _columns
-            RAISE NOTICE 'LOOP COLUMN: %', _columns.sign;
+    RETURN QUERY
+    WITH info AS (
+        SELECT
+            od.*,
+            pg_catalog.format_type(a.atttypid, a.atttypmod) as column_type,
+            CASE WHEN (
+                SELECT substring(pg_catalog.pg_get_expr(d.adbin, d.adrelid) for 128)
+                FROM   pg_catalog.pg_attrdef d
+                WHERE  d.adrelid = a.attrelid AND d.adnum = a.attnum AND a.atthasdef
+            ) IS NOT NULL THEN
+                'DEFAULT '|| (
+                  SELECT substring(pg_catalog.pg_get_expr(d.adbin, d.adrelid) for 128)
+                  FROM   pg_catalog.pg_attrdef d
+                  WHERE  d.adrelid = a.attrelid AND d.adnum = a.attnum AND a.atthasdef
+            ) ELSE NULL
+            END AS column_default_value,
+            CASE WHEN a.attnotnull = true THEN 'NOT NULL' ELSE 'NULL' END AS column_not_null
+        FROM deploy.object_difference(
+             source_schema, target_schema,
+             'deploy.cte_attribute', source_oid, target_oid) AS od
+        LEFT JOIN pg_catalog.pg_attribute a
+            ON ((a.attrelid = od.t_oid and a.attname = od.t_objname)
+             OR (a.attrelid = od.s_oid AND a.attname = od.s_objname))
+        WHERE a.attnum > 0
+          AND NOT a.attisdropped
+    ) -- eo info
+    SELECT DISTINCT CASE
+      WHEN t_schema IS NULL THEN
+        'ALTER TABLE '||source_schema||'.'||source_rel||
+        ' DROP COLUMN '||s_objname||';'
 
-            IF _columns.sign = 'DROP' THEN
-                col_ddl := 'ALTER TABLE '||source_schema||'.'||source_rel||' DROP COLUMN '||_columns.col;
-            ELSE
-                SELECT INTO col_ddl
-                'ALTER TABLE '||source_schema||'.'||source_rel||' '
-                ||'ADD COLUMN '||_columns.col||' '||_columns.column_type||' '
-                ||_columns.column_default_value||' '||_columns.column_not_null;
-            END IF;
-            col_ddl := col_ddl||';';
-            RETURN NEXT col_ddl;
-        END LOOP; -- _columns
+      WHEN s_schema IS NULL THEN
+        'ALTER TABLE '||source_schema||'.'||source_rel||
+        ' ADD COLUMN '||array_to_string(ARRAY[t_objname, column_type,
+        column_default_value, column_not_null],' ')||';'
+
+      ELSE '-- COLUMN: no change for '||s_objname END AS ddl
+    FROM info;
 END;
 $BODY$
     LANGUAGE plpgsql STABLE;
+
+select * FROM deploy.object_difference(
+  'testp'::name, 'testr'::name, 'deploy.cte_attribute',
+   (SELECT c.oid FROM pg_class c INNER JOIN pg_namespace n
+      ON n.oid = c.relnamespace and c.relname = 'a' and n.nspname = 'testp'),
+   (SELECT c.oid FROM pg_class c INNER JOIN pg_namespace n
+      ON n.oid = c.relnamespace and c.relname = 'a' and n.nspname = 'testr'))
+      order by s_objname, t_objname;
+
+select * from deploy.reconcile_table_attributes(
+    'testp'::name, 'a'::name, (SELECT c.oid FROM pg_class c INNER JOIN pg_namespace n ON n.oid = c.relnamespace and c.relname = 'a' and n.nspname = 'testp'),
+    'testr'::name, 'a'::name, (SELECT c.oid FROM pg_class c INNER JOIN pg_namespace n ON n.oid = c.relnamespace and c.relname = 'a' and n.nspname = 'testr'));

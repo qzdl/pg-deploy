@@ -17,11 +17,11 @@ BEGIN
         WHERE s_schema IS NOT NULL AND t_schema IS NOT NULL
     )
     SELECT 1 AS priority, deploy.reconcile_relation(source_schema, target_schema) AS ddl
-    -- UNION  -- attributes
-    -- SELECT 2 AS priority, deploy.reconcile_table_attributes(
-    --     s_schema, s_objname, s_oid,
-    --     t_schema, t_objname, t_oid) AS ddl
-    -- FROM candidates
+    UNION  -- attributes
+    SELECT 2 AS priority, deploy.reconcile_table_attributes(
+        s_schema, s_objname, s_oid,
+        t_schema, t_objname, t_oid) AS ddl
+    FROM candidates
     UNION  -- constraints
     SELECT 3 AS priority, deploy.reconcile_constraints(
         s_schema, s_objname, s_oid,
