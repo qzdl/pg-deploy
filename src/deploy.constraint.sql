@@ -19,6 +19,13 @@ DECLARE
     _constraints record;
     ddl text;
 BEGIN
+    RAISE NOTICE 'RECONCILE CONSTRAINT: %', source_schema;
+    RAISE NOTICE 'RECONCILE CONSTRAINT: %', source_rel;
+    RAISE NOTICE 'RECONCILE CONSTRAINT: %', source_oid;
+    RAISE NOTICE 'RECONCILE CONSTRAINT: %', target_schema;
+    RAISE NOTICE 'RECONCILE CONSTRAINT: %', target_rel;
+    RAISE NOTICE 'RECONCILE CONSTRAINT: %', target_oid;
+    RAISE NOTICE 'RECONCILE CONSTRAINT: %', source_schema||':'||source_rel||':'||source_oid||'|'||target_schema||':'||target_rel||':'||target_oid;
     RETURN QUERY
     SELECT DISTINCT
         CASE WHEN t_schema IS NULL THEN

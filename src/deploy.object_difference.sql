@@ -24,7 +24,7 @@ BEGIN
 
     RETURN QUERY EXECUTE FORMAT('
     with fun as (
-        select * from %1$s($1, $2'||oids||')
+        select * from %1$s($1,$2'||oids||')
     )
     SELECT DISTINCT
         s_schema, s_objname, s_oid, s_id,
