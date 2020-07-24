@@ -145,10 +145,9 @@ The extension has standard PostgreSQL unit tests.
 The integration tests simulate a real environment and the workflow.
 
 -   The preparatory steps are as described in the Usage section for end users.
--   The two states used for development are the DEV/XXX_a.sql and DEV/XXX_b.sql files.
+-   The two states used for development are the integration_tests/source.sql and integration_tests/target.sql files.
     These files serve for testing and to be modified only when new test case or edge case is implemented.
--   The developer executes the helper script DEV/YYY.sh in order to get his test results. The scripts generates
-    and applies the diff rules to transform state A to and from state B.
+-   The developer executes the helper script integration_tests/transform.sh in order to get his test results. For details see the transform.sh file.
 
 
 NOTE: If structural changes against the **current** version exist in the database,
