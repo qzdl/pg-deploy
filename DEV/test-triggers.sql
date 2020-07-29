@@ -95,6 +95,8 @@ select 4.1, deploy.reconcile_trigger(
     'testr'::name,
     (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testr' where relname = 'lrnm'));
 
+-----|| LEFT, RIGHT :: NO DELTA (round 2)
+-- expecting NOTHING x2
 drop table if exists testp.lrnm2;
 drop table if exists testr.lrnm2;
 create table testp.lrnm2(a text, b text);
@@ -116,6 +118,25 @@ select 5.1, deploy.reconcile_trigger(
     (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testr' where relname = 'lrnm2'));
 
 
+-----|| NO LEFT, RIGHT && NO RIGHT, LEFT
+-- expecting DROP ii, CREATE i
+drop table if exists testp.nlrnrl;
+drop table if exists testr.nlrnrl;
+create table testp.nlrnrl(a text, b text);
+create table testr.nlrnrl(a text, b text);
+drop trigger if exists nlrnli_trig on testp.nlrnrl;
+drop trigger if exists nlrnlii_trig on testp.nlrnrl;
+drop trigger if exists nlrnli_trig on testr.nlrnrl;
+drop trigger if exists nlrnlii_trig on testr.nlrnrl;
+create trigger nlrnlii_trig before update on testp.nlrnrl for each row execute procedure testp.ttdep();
+create trigger nlrnli_trig before update on testr.nlrnrl for each row execute procedure testr.ttdep();
+INSERT into res
+select 6.0, 'nlrnrl: drop ii, create i, (2 triggers)' union
+select 6.1, deploy.reconcile_trigger(
+    'testp'::name,
+    (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testp' where relname = 'nlrnrl'),
+    'testr'::name,
+    (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testr' where relname = 'nlrnrl'));
 
 
 select * from res order by idx asc, ddl desc;
