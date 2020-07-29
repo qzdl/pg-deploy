@@ -19,15 +19,17 @@ RETURNS SETOF TEXT AS
 $BODY$
 BEGIN
     RETURN QUERY
-    SELECT DISTINCT
-          CASE WHEN t_schema IS NULL THEN
-            'DROP INDEX IF EXISTS '||s_schema||'.'||s_objname
-               WHEN s_schema IS NULL THEN
-            replace(pg_get_indexdef(t_oid),
-              target_schema||'.', source_schema||'.')
-          ELSE '-- LEFT and RIGHT of '''||s_objname||''' are equal' END AS ddl
+    SELECT DISTINCT CASE
+        WHEN t_schema IS NULL THEN
+          'DROP INDEX IF EXISTS '||s_schema||'.'||s_objname
+        WHEN s_schema IS NULL THEN
+          replace(pg_get_indexdef(t_oid),
+            target_schema||'.', source_schema||'.')
+        ELSE
+          '-- LEFT and RIGHT of '''||s_objname||''' are equal'
+        END AS ddl
     FROM deploy.object_difference(
-        source_schema, target_schema, 'deploy.cte_index', source_oid, target_oid);
+      source_schema, target_schema, 'deploy.cte_index', source_oid, target_oid);
 END;
 $BODY$
     LANGUAGE plpgsql STABLE;

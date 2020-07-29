@@ -18,7 +18,7 @@ create or replace function testr.func_lrd(a int, b int) returns int as $body$ be
 create or replace function testp.func_lrd2(a int, g boolean) returns int as $body$ begin return 0; end; $body$ language plpgsql;
 create or replace function testr.func_lrd2(a int, f boolean) returns int as $body$ begin return 0; end; $body$ language plpgsql;
 
---- LRD2
+--- LRD3
 --- expecting CREATE OR REPLACE func
 create or replace function testp.func_lrd3(a int, g boolean) returns int as $body$ begin return 0; end; $body$ language plpgsql;
 create or replace function testr.func_lrd3(a int, f boolean) returns int as $body$ begin return 1; end; $body$ language plpgsql;
