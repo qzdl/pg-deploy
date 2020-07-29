@@ -10,22 +10,27 @@ RETURNS TABLE(
 $BODY$
 BEGIN
     RETURN QUERY
-    SELECT
-        n.nspname AS nspname,
-        ic.relname AS objname,
-        indexrelid AS oid,
-        replace(pg_get_indexdef(indexrelid), target_schema||'.', source_schema||'.') AS id
-    FROM pg_catalog.pg_index AS i
+    SELECT n.nspname  AS nspname,
+           tg.tgname AS objname,
+           tg.oid     AS oid,
+           replace(pg_get_triggerdef(tg.oid), target_schema||'.', source_schema||'.')
+                      AS id
+    FROM pg_catalog.pg_trigger AS tg
     INNER JOIN pg_catalog.pg_class AS ic
-        ON ic.oid = i.indexrelid
+        ON ic.oid = tg.tgrelid
     INNER JOIN pg_catalog.pg_namespace AS n
         ON n.oid = ic.relnamespace
-    WHERE i.indrelid = source_oid or i.indrelid = target_oid
+    WHERE tg.tgrelid = source_oid OR tg.tgrelid = target_oid
     ORDER BY n.nspname;
 END;
 $BODY$
     LANGUAGE plpgsql STABLE;
 
-SELECT * FROM deploy.cte_trigger('testp', 'testr',
-  (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testp' where relname = 'lnr'),
-  (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testr' where relname = 'lnr'));
+SELECT * FROM deploy.cte_trigger('testp'::name, 'testr'::name,
+  (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testp' where relname = 'nlr'),
+  (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testr' where relname = 'nlr'));
+
+
+-- SELECT * FROM deploy.object_difference('testp'::name, 'testr'::name, 'cte_trigger'::name,
+--   (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testp' where relname = 'lrnm2'),
+--   (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testr' where relname = 'lrnm2'));
