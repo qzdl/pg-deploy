@@ -16,7 +16,7 @@ BEGIN
           replace(pg_get_triggerdef(t_oid),
             target_schema||'.', source_schema||'.')
         ELSE
-          '-- TRIGGER: LEFT and RIGHT of '''||s_objname||''' are equal'
+          '-- TRIGGER: LEFT and RIGHT of '''||s_objname||''' on '''||c.relname||''' are equal'
         END AS ddl
     FROM deploy.object_difference(
       source_schema, target_schema,

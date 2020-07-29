@@ -108,8 +108,8 @@ create trigger lrnmii_trig before update on testp.lrnm2 for each row execute pro
 create trigger lrnmi_trig before update on testr.lrnm2 for each row execute procedure testr.ttdep();
 create trigger lrnmii_trig before update on testr.lrnm2 for each row execute procedure testr.ttdep();
 INSERT into res
-select 4.0, 'lrnm2: pass (2 triggers)' union
-select 4.1, deploy.reconcile_trigger(
+select 5.0, 'lrnm2: pass (2 triggers)' union
+select 5.1, deploy.reconcile_trigger(
     'testp'::name,
     (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testp' where relname = 'lrnm2'),
     'testr'::name,
