@@ -48,12 +48,23 @@ CREATE AGGREGATE testp.cavg (float8)
     initcond = '{0,0,0}'
 );
 
+
+drop function if exists testp.cavg;
+
+
 /* these are a bit weird;
 - bodies are not stored
 - marked as internal
 - error on `pg_get_functiondef`
   - `ERROR: "cavg" is an aggregate function`
+*/
+
+
+select pg_get_function_arguments((select oid from pg_proc where proname = 'cavg'));
+select pg_get_function_identity_arguments((select oid from pg_proc where proname = 'cavg'));
+
 
 select pg_get_functiondef((select oid from pg_proc where proname = 'cavg'));
+
 
 select * from deploy.reconcile_function('testp'::name, 'testr'::name)
