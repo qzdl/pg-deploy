@@ -9,15 +9,23 @@ RETURNS SETOF TEXT AS
 $BODY$
 BEGIN
     RETURN QUERY
-    SELECT DISTINCT
-          CASE WHEN t_schema IS NULL THEN
-            'DROP FUNCTION IF EXISTS '||s_schema||'.'||s_objname||';'
-               WHEN s_schema IS NULL THEN
-            replace(pg_get_functiondef(t_oid),
-              target_schema||'.', source_schema||'.')
-          ELSE '-- LEFT and RIGHT of '''||s_objname||''' are equal' END AS ddl --, COALESCE(s_schema, 'CREATE') as s_schema, s_objname, s_oid, pg_get_functiondef(s_oid) as s_def, pg_get_functions_identity_arguments(s_oid) as s_iargs, s_id, COALESCE(t_schema, 'DROP') as t_schema, t_objname, t_oid, --  ,pg_get_functiondef(t_oid) as t_def, pg_get_function_identity_arguments(t_oid) as t_def, t_id
+    SELECT DISTINCT CASE
+      WHEN t_schema IS NULL THEN
+        'DROP '|| (CASE WHEN a.aggfnoid IS NOT NULL THEN 'AGGREGATE' ELSE 'FUNCTION' END)
+         ||' IF EXISTS '||s_schema||'.'||s_objname||';'
+      WHEN s_schema IS NULL THEN
+        replace((CASE WHEN l.lanname = 'internal'
+           THEN '-- unsupported function definition ('||t_objname||') '||p.prosrc
+           ELSE pg_get_functiondef(t_oid) END),
+          target_schema||'.', source_schema||'.')
+      ELSE
+        '-- LEFT and RIGHT of '''||s_objname||''' are equal'
+      END AS ddl
     FROM deploy.object_difference(source_schema, target_schema, 'deploy.cte_function')
-    order by ddl desc; -- comments and drops first
+    INNER JOIN pg_proc p ON p.oid = s_oid OR p.oid = t_oid
+    LEFT JOIN pg_language l ON p.prolang = l.oid
+    LEFT JOIN pg_aggregate a ON a.aggfnoid = p.oid
+    ORDER BY ddl DESC; -- comments and drops first
 END;
 $BODY$
     LANGUAGE plpgsql STABLE;

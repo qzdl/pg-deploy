@@ -39,4 +39,21 @@ drop function if exists testr.func_lnr(a int, b int);
 create or replace function testp.func_lnr(a int, b int) returns int as $body$ begin return 0; end; $body$ language plpgsql;
 
 
+-- USER DEFINED AGGREGATES
+CREATE AGGREGATE testp.cavg (float8)
+(
+    sfunc = float8_accum,
+    stype = float8[],
+    finalfunc = float8_avg,
+    initcond = '{0,0,0}'
+);
+
+/* these are a bit weird;
+- bodies are not stored
+- marked as internal
+- error on `pg_get_functiondef`
+  - `ERROR: "cavg" is an aggregate function`
+
+select pg_get_functiondef((select oid from pg_proc where proname = 'cavg'));
+
 select * from deploy.reconcile_function('testp'::name, 'testr'::name)
