@@ -142,9 +142,9 @@ BEGIN
     RAISE NOTICE 'IM (EVENT) TRIGGERED: % %', tg_event, tg_tag;
 END;
 $$ LANGUAGE plpgsql;
+
+
 CREATE EVENT TRIGGER etdep ON ddl_command_start EXECUTE procedure testp.etdep();
-
-
 drop event trigger etdep;
 drop function testp.etdep;
 
@@ -172,12 +172,13 @@ SELECT
     ||(CASE WHEN evttags IS NOT NULL AND LENGTH(evttags) > 0
        THEN ' WHEN TAG IN ('||evttags||') '
        ELSE '' END)
-    ||' EXECUTE FUNCTION '||evtfname||'()'
-    ||(CASE WHEN evtenabled = 'O' THEN '' ELSE ' '||(
+    ||' EXECUTE FUNCTION '||evtfname||'();'
+    ||(CASE WHEN evtenabled = 'O' THEN '' ELSE '
+ALTER EVENT TRIGGER '||evtname||' '||(
         CASE WHEN evtenabled = 'D' THEN 'DISABLE'
              WHEN evtenabled = 'A' THEN 'ENABLE ALWAYS'
              WHEN evtenabled = 'R' THEN 'ENABLE REPLICA'
-                                   ELSE 'ENABLE' END) END)
+                                   ELSE 'ENABLE' END)||';' END)
     ) as ddl, *
 FROM tr
 order by ddl desc;
@@ -220,3 +221,12 @@ order by ddl desc;
 -- 		}
 
 -- 	}
+
+(get-buffer sql-buffer)
+(current-buffer)
+
+
+
+
+
+(first (list 1 2))

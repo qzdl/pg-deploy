@@ -1,35 +1,26 @@
-DROP FUNCTION IF EXISTS deploy.cte_trigger(
-    source_schema name, target_schema name,
-    source_oid oid, target_oid oid);
+DROP FUNCTION IF EXISTS deploy.cte_event_trigger(_ name, __ name);
 
-CREATE FUNCTION deploy.cte_trigger(
-    source_schema name, target_schema name,
-    source_oid oid, target_oid oid)
+CREATE FUNCTION deploy.cte_event_trigger(_ name, __ name)
 RETURNS TABLE(
     nspname name, objname name, oid oid, id text) AS
 $BODY$
 BEGIN
     RETURN QUERY
-    SELECT n.nspname  AS nspname,
-           tg.tgname AS objname,
-           tg.oid     AS oid,
-           replace(pg_get_triggerdef(tg.oid), target_schema||'.', source_schema||'.')
-                      AS id
-    FROM pg_catalog.pg_trigger AS tg
-    INNER JOIN pg_catalog.pg_class AS ic
-        ON ic.oid = tg.tgrelid
-    INNER JOIN pg_catalog.pg_namespace AS n
-        ON n.oid = ic.relnamespace
-    WHERE tg.tgrelid = source_oid OR tg.tgrelid = target_oid
-    ORDER BY n.nspname;
+    SELECT
+      (CASE WHEN STRPOS(evtname, '--deploy--') > 0
+        THEN 'target'
+        ELSE 'source' END)::name AS nspname,
+      split_part(evtname, '--deploy--', 1)::name AS objname,
+      e.oid AS oid,
+      split_part(evtname, '--deploy--', 1)||evtevent||evtenabled
+      ||array_to_string(ARRAY(SELECT quote_literal(x) FROM UNNEST(evttags) AS t(x)),'') AS id
+    FROM pg_catalog.pg_event_trigger AS e
+    ORDER BY nspname;
 END;
 $BODY$
     LANGUAGE plpgsql STABLE;
 
-SELECT * FROM deploy.cte_trigger('testp'::name, 'testr'::name,
-  (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testp' where relname = 'nlr'),
-  (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testr' where relname = 'nlr'));
-
+SELECT * FROM deploy.cte_event_trigger('testp'::name, 'testr'::name);
 
 -- SELECT * FROM deploy.object_difference('testp'::name, 'testr'::name, 'cte_trigger'::name,
 --   (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testp' where relname = 'lrnm2'),
