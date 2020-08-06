@@ -144,7 +144,11 @@ END;
 $$ LANGUAGE plpgsql;
 
 
-CREATE EVENT TRIGGER etdep ON ddl_command_start EXECUTE procedure testp.etdep();
+CREATE EVENT TRIGGER etdep ON ddl_command_start EXECUTE procedure testp.etdep() (CASE WHEN STRPOS(evtname, '--deploy--') > 0
+        THEN 'target'
+        ELSE 'source' END)::name AS nspname,;
+
+
 drop event trigger etdep;
 drop function testp.etdep;
 

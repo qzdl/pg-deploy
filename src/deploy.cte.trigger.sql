@@ -20,8 +20,7 @@ END;
 $BODY$
     LANGUAGE plpgsql STABLE;
 
-SELECT * FROM deploy.cte_event_trigger('testp'::name, 'testr'::name);
+SELECT * FROM deploy.cte_event_trigger('','');
 
--- SELECT * FROM deploy.object_difference('testp'::name, 'testr'::name, 'cte_trigger'::name,
---   (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testp' where relname = 'lrnm2'),
---   (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testr' where relname = 'lrnm2'));
+
+SELECT * FROM deploy.object_difference('','','cte_event_trigger'::name)

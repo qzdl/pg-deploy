@@ -18,8 +18,8 @@ BEGIN
             ARRAY(SELECT quote_literal(x)
                   FROM UNNEST(evttags) AS t(x)), ', ') AS evttags,
           e.evtfoid::regproc AS evtfname
-      FROM object_difference(''::name,''::name,'cte_event_trigger'::name) od
-      INNER JOIN pg_event_trigger e
+      FROM deploy.object_difference(''::name,''::name,'cte_event_trigger'::name) od
+      INNER JOIN pg_catalog.pg_event_trigger e
         ON e.oid = od.s_oid OR e.oid = od.t_oid
     )
     SELECT CASE
