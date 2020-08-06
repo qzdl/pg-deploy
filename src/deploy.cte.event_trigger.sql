@@ -20,7 +20,7 @@ END;
 $BODY$
     LANGUAGE plpgsql STABLE;
 
-SELECT * FROM deploy.cte_event_trigger('','');
+SELECT * FROM deploy.cte_event_trigger(''::name,''::name);
 
 
-SELECT * FROM deploy.object_difference('','','cte_event_trigger'::name)
+SELECT * FROM deploy.object_difference('source'::name,'target'::name,'deploy.cte_event_trigger'::name)

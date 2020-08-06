@@ -9,7 +9,9 @@ BEGIN
     RETURN QUERY
     WITH tr AS (
       SELECT DISTINCT
-          e.tableoid,
+          t_schema,
+          s_schema,
+          s_objname,
           e.oid,
           evtname,
           evtenabled,
@@ -18,8 +20,9 @@ BEGIN
             ARRAY(SELECT quote_literal(x)
                   FROM UNNEST(evttags) AS t(x)), ', ') AS evttags,
           e.evtfoid::regproc AS evtfname
-      FROM deploy.object_difference(''::name,''::name,'cte_event_trigger'::name) od
-      INNER JOIN pg_catalog.pg_event_trigger e
+      FROM deploy.object_difference(
+        'source'::name,'target'::name,'deploy.cte_event_trigger'::name) AS od
+      INNER JOIN pg_catalog.pg_event_trigger AS e
         ON e.oid = od.s_oid OR e.oid = od.t_oid
     )
     SELECT CASE
