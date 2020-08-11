@@ -13,7 +13,8 @@ BEGIN
       split_part(evtname, '--deploy--', 1)::name AS objname,
       e.oid AS oid,
       split_part(evtname, '--deploy--', 1)||evtevent||evtenabled
-      ||array_to_string(ARRAY(SELECT quote_literal(x) FROM UNNEST(evttags) AS t(x)),'') AS id
+      ||array_to_string(ARRAY(
+        SELECT quote_literal(x) FROM UNNEST(evttags) AS t(x)),'') AS id
     FROM pg_catalog.pg_event_trigger AS e
     ORDER BY nspname;
 END;
@@ -22,5 +23,5 @@ $BODY$
 
 SELECT * FROM deploy.cte_event_trigger(''::name,''::name);
 
-
-SELECT * FROM deploy.object_difference('source'::name,'target'::name,'deploy.cte_event_trigger'::name)
+SELECT * FROM deploy.object_difference(
+  'source'::name,'target'::name,'deploy.cte_event_trigger'::name)
