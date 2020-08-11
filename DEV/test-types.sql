@@ -32,8 +32,8 @@ SELECT
   WHEN t.typlen < 0 THEN -- range
     E'(\n  '||(
     SELECT
- array_to_string(ARRAY['subtype = '||format_type(rngsubtype),
-      CASE WHEN opcdefault <> 't' THEN 'subtype_opclass = '||'TODONAMESPACE'||'.'||opcname ELSE NULL END,
+ array_to_string(ARRAY['subtype = '||(SELECT typname FROM pg_type t2 WHERE t2.oid = r.rngsubtype),
+      CASE WHEN opcdefault <> 't' THEN 'subtype_opclass = '||n.nspname||'.'||opcname ELSE NULL END,
       CASE WHEN rngsubdiff::text <> '-' THEN 'subtype_diff = ' || rngsubdiff ELSE NULL END,
       CASE WHEN rngcanonical::text <> '-' THEN 'canonical = ' || rngcanonical ELSE NULL END,
       CASE WHEN rngcollation <> 0 THEN 'collation = ' || rngcollation ELSE NULL END], E',\n  ') AS range_body
