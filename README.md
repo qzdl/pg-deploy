@@ -5,12 +5,13 @@
     1.  [Workflow](#org30bf2dc)
         1.  [Extension Install](#org82aaf99)
     2.  [Usage](#orga57ddd9)
-    3.  [For Developers](#forDevs)
-    4.  [Troubleshooting during installation](#org55c182b)
-    5.  [Todo](#todo)
+    3.  [Limitations](#Limitations)
+    4.  [For Developers](#forDevs)
+    5.  [Troubleshooting during installation](#org55c182b)
+    6.  [Todo](#todo)
 
 
-
+    
 # <a name="#org757db1b"></a> `DEPLOY_TEST`
 
 Postgres extension for maintaining database schemata using git.
@@ -22,66 +23,81 @@ Advantages:
     - Proper version control with rollback
     - Deployment by commit, by tag or as your semantic versioning scheme requires
     - Tests, deployment can be triggered by git hook etc
-    - Branches for different scenarios (archive, production system etc., where minor changes may be present)
+    - Branches for different scenarios (archive, production system etc., where
+      minor changes may be present)
     - git hooks
     - history
     - etc.
--   Single source of truth for all declarations and changes to schemata in a repository
--   Using the database for generating the code for depoyment means syntax check for the schema
+-   Single source of truth for all declarations and changes to schemata in a
+    repository
+-   Using the database for generating the code for depoyment means syntax check
+    for the schema
 -   Make your own automated testing pipeline for the generated code
 
 How it works - some theory:
 
-The definition of the database object describe the state of the database in regard its structure. This state is defined by
-a set of CREATE statements. A change in this definition results in a new state, that is also a set
-of create statements. We can establish the differences between the two states with the help of the
-PostgreSQL catalog tables and we can generate SQL code that can transform one state into an other.
-With other works: if we create a schema using the current state - new_schema - and using the previous
-state - old_schema - in a running database. Then the main function of the extension calculates the
-differences between the two schemas and generates an SQL code. This code can transform old_schema
-into the new_schema. The code generation based on the differences between objects, regardless if that is a new commit
-or a rollback, only the direction of transformation must be defined:
+The definition of the database object describe the state of the database in
+regard its structure. This state is defined by a set of CREATE statements. A
+change in this definition results in a new state, that is also a set of create
+statements. We can establish the differences between the two states with the
+help of the PostgreSQL catalog tables and we can generate SQL code that can
+transform one state into an other. With other works: if we create a schema using
+the current state - new_schema - and using the previous state - old_schema - in
+a running database. Then the main function of the extension calculates the
+differences between the two schemas and generates an SQL code. This code can
+transform old_schema into the new_schema. The code generation based on the
+differences between objects, regardless if that is a new commit or a rollback,
+only the direction of transformation must be defined:
 
-For instance, if the new_schema has a new table then the table declaration must be calculated and applied to the old_schema.
-The other direction would be a DROP statement that removes the excess table.
+For instance, if the new_schema has a new table then the table declaration must
+be calculated and applied to the old_schema. The other direction would be a DROP
+statement that removes the excess table.
 
-To test the generated code simply apply the generated code to the original database schema and call the
-comparison function of the pg-deploy extension. The result should be a text without any sql commands:
-after applying the changes to the source state it should be transformed into the target state, so there should be
-no difference.
+To test the generated code simply apply the generated code to the original
+database schema and call the comparison function of the pg-deploy extension. The
+result should be a text without any sql commands: after applying the changes to
+the source state it should be transformed into the target state, so there should
+be no difference.
 
-After proving the generated code further commands can be added to it before deployment - eg. rebuilding indices, vacuuming etc.
+After proving the generated code further commands can be added to it before
+deployment - eg. rebuilding indices, vacuuming etc.
 
 
 Caveats
 
 - chain renaming is rollback boundary:
-    if object A is renamed as B, B is renamed as C and a new A is made in subsequent changes, it is impossible to restore
-    the initial state. If that is a table, it is not possible to decide if it is a new table or a renamed old one.
-    With other words: RENAMEing objects is not encouraged.
+    if object A is renamed as B, B is renamed as C and a new A is made in
+    subsequent changes, it is impossible to restore the initial state. If that
+    is a table, it is not possible to decide if it is a new table or a renamed
+    old one. With other words: RENAMEing objects is not encouraged.
 - runtime errors are not checked:
-    In case of changing the name of a function from or to its qualified form but inside a function or dependent function
-    the change is not made the result leads to runtime errors. Tests are great tools to prevent such situation.
+    In case of changing the name of a function from or to its qualified form but
+    inside a function or dependent function the change is not made the result
+    leads to runtime errors. Tests are great tools to prevent such situation.
 - dyamically created tables shall not be part of the schema definition:
-    dynamically created tables are accidental for the particular database and not consistent
-    across databases. Such tables are table partitions or tables with time stamps generated dynamically. Be aware
-    if such tables are included in your schema definition.
+    dynamically created tables are accidental for the particular database and
+    not consistent across databases. Such tables are table partitions or tables
+    with time stamps generated dynamically. Be aware if such tables are included
+    in your schema definition.
 
 
 ### <a name="#org82aaf99"></a> Extension Install
 
-Installation of the extension follows the standard Postgres Extension install process.
+Installation of the extension follows the standard Postgres Extension install
+process.
 
 The server will not require a restart after install.
 
 The procedure relies on `gmake`, with tests through `installcheck` managed by
 environment variables, as seen below.
 
-For a full list of environment variables relevant to PG, refer the official [docs](https://www.postgresql.org/docs/current/libpq-envars.html)
+For a full list of environment variables relevant to PG, refer the official
+[docs](https://www.postgresql.org/docs/current/libpq-envars.html)
 
-Make the extension available for the instance, generate [results/deploy<sub>test.out</sub>](results/deploy_test.out)
-with the following commands &#x2013; and be sure to prepend `sudo` if the installation is
-not governed by the executing user.
+Make the extension available for the instance, generate
+[results/deploy<sub>test.out</sub>](results/deploy_test.out) with the following
+commands &#x2013; and be sure to prepend `sudo` if the installation is not
+governed by the executing user.
 
     make install
     make installcheck -e PGPORT=YOUR_PG_PORT -e PGUSER=YOUR_PG_USER -e OTHERVAR=READ_THE_DOCS
@@ -133,6 +149,10 @@ test deploy<sub>test</sub>              &#x2026; ok
 
 Note: For an example check the DEV/reconcile.sh script.
 
+
+
+## <a name="#limitations"></a> Limitations
+- Base types are not supported 
 
 ## <a name="#forDevs"></a> For Developers
 
