@@ -9,6 +9,10 @@ CREATE TYPE testp.mycomp AS (f1 int, f2 text);
 CREATE TYPE testp.mycompint AS (f1 int, f2 int);
 
 
+create type testp.mycomptz AS (f1 timezone without time zone, f2 text);
+
+
+
 CREATE TYPE testp.empty;
 
 -- base type (FIXME: on hold)
@@ -23,17 +27,27 @@ CREATE TYPE testp.empty;
 SELECT
   'CREATE TYPE '||n.nspname||'.'||t.typname||' AS '
   ||(CASE
-  WHEN t.typrelid != 0 THEN --comp
+  WHEN t.typrelid != 0 THEN -- comp
     CAST('tuple' AS pg_catalog.text)
-  WHEN t.typlen < 0       -- range
-      THEN CAST('var' AS pg_catalog.text)
+  WHEN t.typlen < 0 THEN -- range
+    E'(\n  '||(
+    SELECT
+      array_to_string(ARRAY['subtype = '||format_type(rngsubtype, NULL),
+      CASE WHEN opcdefault <> 't' THEN 'subtype_opclass = '||'TODONAMESPACE'||'.'||opcname ELSE NULL END,
+      CASE WHEN rngsubdiff::text <> '-' THEN 'subtype_diff = ' || rngsubdiff ELSE NULL END,
+      CASE WHEN rngcanonical::text <> '-' THEN 'canonical = ' || rngcanonical ELSE NULL END,
+      CASE WHEN rngcollation <> 0 THEN 'collation = ' || rngcollation ELSE NULL END], E',\n  ') AS range_body
+    FROM pg_catalog.pg_range r
+    LEFT JOIN pg_catalog.pg_type st ON st.oid = r.rngsubtype
+    LEFT JOIN pg_catalog.pg_opclass opc ON r.rngsubopc = opc.oid
+    WHERE r.rngtypid = t.oid)
   ELSE -- enum
-    'ENUM ('||pg_catalog.array_to_string(ARRAY(
+    E'ENUM(\n  '||pg_catalog.array_to_string(ARRAY(
       SELECT ''''||e.enumlabel||''''
       FROM pg_catalog.pg_enum e
       WHERE e.enumtypid = t.oid
-      ORDER BY e.enumsortorder), ', ')||')'
-  END)||';' as ddl,
+      ORDER BY e.enumsortorder), E',\n  ')
+  END)||E'\n);' as ddl,
   pg_catalog.format_type(t.oid, NULL) AS "Name",
   t.typname AS "Internal name"
 FROM pg_catalog.pg_type t
@@ -56,25 +70,7 @@ $f$  LANGUAGE SQL IMMUTABLE;
 
 -- range type info
 -- subtype_opclass
-SELECT
-  pg_catalog.format_type(rngsubtype, NULL) AS rngsubtype,
-  opc.opcname AS opcname,
-  (SELECT nspname FROM pg_catalog.pg_namespace nsp
-   WHERE nsp.oid = opc.opcnamespace) AS opcnsp,
-  opc.opcdefault,
 
-  CASE WHEN rngcollation = st.typcollation THEN 0
-       ELSE rngcollation END AS collation,
-  -- array_to_string(ARRAY['subtype = '||rngsubtype,
-  --   IIF(opcdefault <> 't', 'subtype_opclass = '||'TODONAMESPACE'||'.'||opcname, NULL),
-  --   IIF(rngsubdiff::text <> '-', 'subtype_diff = ' || rngsubdiff, NULL),
-  --   IIF(rngcanonical::text <> '-', 'canonical = ' || rngcanonical, NULL),
-  --   IIF(rngcollation <> 0, 'collation = ' || rngcollation, NULL)], ',\n  ') AS ddl,
-rngsubdiff, rngtypid, rngcollation
-  FROM pg_catalog.pg_range r,
-       pg_catalog.pg_type st,
-       pg_catalog.pg_opclass opc
-  WHERE st.oid = rngsubtype AND opc.oid = rngsubopc
 --  AND rngtypid = SOMETHING WHAT
 
 select array_to_string(array[1,2], E',\n  ')
