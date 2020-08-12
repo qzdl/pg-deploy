@@ -49,14 +49,13 @@ SELECT DISTINCT
           typisdefined::text, typdelim::text, typrelid::text, typelem::text, typarray::text, typinput::text,
           typoutput::text, typreceive::text, typsend ::text, typmodin::text, typmodout::text, typanalyze::text,
           typalign::text, typstorage::text, typnotnull::text, typbasetype::text, typtypmod::text, typndims::text,
-          typcollation::text, typdefaultbin::text, typdefault::text, typacl::text], ',') as tpos,
-        array_to_string(array(
-            SELECT e.enumlabel FROM pg_catalog.pg_enum e WHERE e.enumtypid = t.oid), ',') as epos,
+          typcollation::text, typdefaultbin::text, typdefault::text, typacl::text], ',')||
+        array_to_string(array(SELECT e.enumlabel FROM pg_catalog.pg_enum e WHERE e.enumtypid = t.oid), ',')||
         COALESCE((SELECT rngsubtype||opcname||rngsubdiff||rngcanonical||rngcollation
                     FROM pg_catalog.pg_range r
                       LEFT JOIN pg_catalog.pg_type st ON st.oid = r.rngsubtype
                       LEFT JOIN pg_catalog.pg_opclass opc ON r.rngsubopc = opc.oid
-                    WHERE r.rngtypid = t.oid),'no range props') AS rpos
+                    WHERE r.rngtypid = t.oid),'') AS rpos
     FROM pg_catalog.pg_type t
       LEFT JOIN pg_catalog.pg_namespace n ON n.oid = t.typnamespace
     WHERE (t.typrelid = 0 OR (SELECT c.relkind = 'c' FROM pg_catalog.pg_class c WHERE c.oid = t.typrelid))
