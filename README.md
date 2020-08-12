@@ -127,7 +127,7 @@ test deploy<sub>test</sub>              &#x2026; ok
 -   Call the extension's main function. If the reconciliation is successful, the return value is an SQL file that can be
     used to create the state transition.
 -   Test the code: as the source and target schema must exist on the reference database that is used by the extension,
-    modify the code so, that you can apply it to the source schema in the reference database. Call the crExtension's reconcile
+    modify the code so, that you can apply it to the source schema in the reference database. Call the reconcile 
     function to calculate the differences again. The result should be text without any SQL executable code in it.
 -   Add your custom changes - eg. vacuum, index rebuild, statistics, etc. Deploy the code in your system.
 
