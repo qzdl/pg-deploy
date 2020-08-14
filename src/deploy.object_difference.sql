@@ -64,3 +64,54 @@ BEGIN
 END; $BODY$ LANGUAGE plpgsql STABLE;
 
 SELECT * FROM deploy.object_difference('testp'::name, 'testr'::name, 'deploy.cte_function'::text);
+
+
+WITH info AS (
+  SELECT distinct
+    t.oid, n.nspname, t.typname, t.typlen, t.typrelid,
+    s_schema, s_objname, t_schema, t_objname, 
+    COALESCE(s_schema, t_schema) AS schemata
+  FROM deploy.object_difference('testp'::name, 'testr'::name, 'deploy.cte_type')
+  INNER JOIN pg_type t ON t.oid = s_oid OR t.oid = t_oid
+  INNER JOIN pg_namespace n ON n.oid = t.typnamespace
+), range AS (
+  SELECT i.oid, array_to_string(ARRAY[
+    'subtype = '||(SELECT typname FROM pg_type t2 WHERE t2.oid = r.rngsubtype),
+     CASE WHEN opcdefault <> 't' THEN 'subtype_opclass = '||'testp'||'.'||opcname ELSE NULL END,
+     CASE WHEN rngsubdiff::text <> '-' THEN 'subtype_diff = ' || rngsubdiff ELSE NULL END,
+     CASE WHEN rngcanonical::text <> '-' THEN 'canonical = ' || rngcanonical ELSE NULL END,
+     CASE WHEN rngcollation <> 0 THEN 'collation = ' || rngcollation ELSE NULL END], E',\n  ') AS range_body
+  FROM pg_catalog.pg_range r
+  INNER JOIN info i on i.oid = r.rngtypid
+  LEFT JOIN pg_catalog.pg_type st ON st.oid = r.rngsubtype
+  LEFT JOIN pg_catalog.pg_opclass opc ON r.rngsubopc = opc.oid
+), enumitems AS (
+  SELECT i.oid, i.nspname, ''''||e.enumlabel||'''' AS label, e.enumsortorder as sort, i.typname
+  FROM pg_catalog.pg_enum e
+  INNER JOIN info i ON e.enumtypid = i.oid
+  ORDER BY e.enumsortorder
+)
+select distinct * from (
+SELECT distinct ei.label, ei.sort, ei.typname
+FROM enumitems AS ei
+WHERE ei.nspname = 'testp'
+  AND NOT EXISTS(
+  SELECT 1 FROM enumitems AS et
+  WHERE et.nspname = 'testr'
+    AND et.typname = ei.typname
+    AND et.label = ei.label
+    AND et.sort = ei.sort
+)
+UNION SELECT DISTINCT ei.label, ei.sort, ei.typname
+FROM enumitems AS ei
+WHERE ei.nspname = 'testr'
+  AND NOT EXISTS(
+  SELECT 1 FROM enumitems AS et
+  WHERE et.nspname = 'testp'
+    AND et.typname = ei.typname
+    AND et.label = ei.label
+    AND et.sort = ei.sort
+)
+) u
+order by typname, sort
+-- --for each (enum0, enum1)
