@@ -1,8 +1,8 @@
 -- split / replace '--deploy--' as signifier for deploy owned event triggers
 
-DROP FUNCTION IF EXISTS deploy.reconcile_event_trigger();
+DROP FUNCTION IF EXISTS pg_deploy.reconcile_event_trigger();
 
-CREATE OR REPLACE FUNCTION deploy.reconcile_event_trigger()
+CREATE OR REPLACE FUNCTION pg_deploy.reconcile_event_trigger()
 RETURNS SETOF TEXT AS
 $BODY$
 BEGIN
@@ -20,8 +20,8 @@ BEGIN
             ARRAY(SELECT quote_literal(x)
                   FROM UNNEST(evttags) AS t(x)), ', ') AS evttags,
           e.evtfoid::regproc AS evtfname
-      FROM deploy.object_difference(
-        'source'::name,'target'::name,'deploy.cte_event_trigger'::name) AS od
+      FROM pg_deploy.object_difference(
+        'source'::name,'target'::name,'pg_deploy.cte_event_trigger'::name) AS od
       INNER JOIN pg_catalog.pg_event_trigger AS e
         ON e.oid = od.s_oid OR e.oid = od.t_oid
     )
@@ -49,4 +49,4 @@ END;
 $BODY$
     LANGUAGE plpgsql STABLE;
 
-select * from deploy.reconcile_event_trigger();
+select * from pg_deploy.reconcile_event_trigger();

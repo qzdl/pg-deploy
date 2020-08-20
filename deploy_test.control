@@ -1,5 +1,0 @@
-# deploy_test
-comment = 'A proof-of-concept to deploy a schema'
-default_version = '0.0.1'
-relocatable = false
-schema = deploy_test

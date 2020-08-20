@@ -1,7 +1,7 @@
 
 # Table of Contents
 
-1.  [`DEPLOY_TEST`](#org757db1b)
+1.  [`pg_deploy`](#org757db1b)
     1.  [Workflow](#org30bf2dc)
         1.  [Extension Install](#org82aaf99)
     2.  [Usage](#orga57ddd9)
@@ -11,11 +11,10 @@
     6.  [Todo](#todo)
 
 
-    
-# <a name="#org757db1b"></a> `DEPLOY_TEST`
+
+# <a name="#org757db1b"></a> `pg_deploy`
 
 Postgres extension for maintaining database schemata using git.
-
 
 Advantages:
 
@@ -30,9 +29,9 @@ Advantages:
     - etc.
 -   Single source of truth for all declarations and changes to schemata in a
     repository
--   Using the database for generating the code for depoyment means syntax check
+-   Using the database for generating the code for depoyment means syntax and reference check
     for the schema
--   Make your own automated testing pipeline for the generated code
+-   Own automated testing pipeline for the generated code, hooks and so on.
 
 How it works - some theory:
 
@@ -43,11 +42,11 @@ statements. We can establish the differences between the two states with the
 help of the PostgreSQL catalog tables and we can generate SQL code that can
 transform one state into an other. With other works: if we create a schema using
 the current state - new_schema - and using the previous state - old_schema - in
-a running database. Then the main function of the extension calculates the
-differences between the two schemas and generates an SQL code. This code can
-transform old_schema into the new_schema. The code generation based on the
-differences between objects, regardless if that is a new commit or a rollback,
-only the direction of transformation must be defined:
+a running database, then we can calculate the way of transforming one into the other.
+Then the main function of the extension does exactly this: it calculates the
+differences between the two schemata and generates a transforming SQL code.
+The code generation based on the differences between objects, regardless
+if that is a new commit or a rollback, only the direction of transformation must be defined:
 
 For instance, if the new_schema has a new table then the table declaration must
 be calculated and applied to the old_schema. The other direction would be a DROP
@@ -71,19 +70,17 @@ Caveats
     is a table, it is not possible to decide if it is a new table or a renamed
     old one. With other words: RENAMEing objects is not encouraged.
 - runtime errors are not checked:
-    In case of changing the name of a function from or to its qualified form but
-    inside a function or dependent function the change is not made the result
-    leads to runtime errors. Tests are great tools to prevent such situation.
+    Procedures/functions must have unit tests.
 - dyamically created tables shall not be part of the schema definition:
     dynamically created tables are accidental for the particular database and
     not consistent across databases. Such tables are table partitions or tables
     with time stamps generated dynamically. Be aware if such tables are included
-    in your schema definition.
+    statically in your schema definition.
 
 
 ### <a name="#org82aaf99"></a> Extension Install
 
-Installation of the extension follows the standard Postgres Extension install
+Installation of the extension follows the standard Postgres extension install
 process.
 
 The server will not require a restart after install.
@@ -122,37 +119,34 @@ test deploy<sub>test</sub>              &#x2026; ok
 
 ### Preparation
 
+-   Prepare reference database. This database will be used to calculate the differences between the states        (commits) but shall not have any user schema defined. (Must be blank.)
 -   Install the extension
--   Prepare reference database. This database will be used to calculate the differences between the states (commits)
-    but shall not have any user schema defined. (Must be blank.)
--   Set the proper permissions, so that the user who connects to the database in the context of this Extension
+-   Set the proper permissions, so that the user who connects to the database in the context of this extension
     can create schema.
 -   Create the extension for the database.
 
 ### First commit
 
--   Create a git repository for your object declarations (tables, procedures, ect.)
-    , that you want to keep in the version controll system.
--   pg_dump the schema so that you can restore it.
--   Use this dump as the base of your initial commit, adjust it according to your needs and commit it.
+-   Create a git repository for your object declarations (tables, procedures, ect.), that you want to keep in the version controll system.
+-   Write the schema declaration or in case of a live system pg_dump the schema sql in to the repository so that you can restore it.
+-   Modify the sql declaration according to your need and make the first commit.
 
 ### Further changes and rollbacks
--   Make your changes. Any change in the object definitions are simply modifications of the definition
-    as if the object would be newly created. Any object deletion is a deletion in the file.
+-   Make your changes. Any change in the object definitions are simply modifications of the definition. Any object deletion is a deletion in the schema file.
 -   To prepare the reference database so, that your target state goes into one schema and the current goes into an other.
 -   Call the extension's main function. If the reconciliation is successful, the return value is an SQL file that can be
     used to create the state transition.
 -   Test the code: as the source and target schema must exist on the reference database that is used by the extension,
-    modify the code so, that you can apply it to the source schema in the reference database. Call the reconcile 
+    modify the code so, that you can apply it to the source schema in the reference database. Call the reconcile
     function to calculate the differences again. The result should be text without any SQL executable code in it.
 -   Add your custom changes - eg. vacuum, index rebuild, statistics, etc. Deploy the code in your system.
 
-Note: For an example check the DEV/reconcile.sh script.
+Note: For an example check the integration_tests/transform.sh script.
 
 
 
 ## <a name="#limitations"></a> Limitations
-- Base types are not supported 
+- Base types are not supported
 
 ## <a name="#forDevs"></a> For Developers
 

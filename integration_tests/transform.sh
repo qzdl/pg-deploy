@@ -50,3 +50,7 @@ echo "SOURCE SCHEMA FILE  = ${source_schema}"
 echo "TARGET SCHEMA FILE  = ${target_schema}"
 
 DIFF_FILE='./'
+if test -f "$DIFF_FILE"; then
+  echo "Diff file $DIFF_FILE exists. Removing it."
+  rm $DIFF_FILE || exit
+fi

@@ -1,7 +1,7 @@
 
-EXTENSION = deploy_test
-DATA = deploy_test--0.0.1.sql
-REGRESS = deploy_test
+EXTENSION = pg_deploy
+DATA = pg_deploy--0.0.1.sql
+REGRESS = pg_deploy
 
 # postgres build stuff
 PG_CONFIG = pg_config

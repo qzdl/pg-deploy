@@ -1,0 +1,5 @@
+# pg_deploy
+comment = 'A proof-of-concept to calculate transformation rules between shemas'
+default_version = '0.0.1'
+relocatable = false
+schema = pg_deploy
