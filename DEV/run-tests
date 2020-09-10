@@ -1,4 +1,4 @@
 #!/bin/bash
 # <exec-shell-cmd "chmod +x ./run-tests">
 
-for f in $(ls ./test-*); do psql -f $f; done
+for f in $(ls ./sql/*); do psql -f $f; done

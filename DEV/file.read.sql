@@ -18,7 +18,7 @@
   DEPLOY: {C-c C-b}
 
   CHECK: <eval-elisp (sql-send-string "\\df file.*")>
-         <eval-elisp (sql-send-string "select file.read('/home/qzdl/git/pg-deploy/DEV/file.read.sql')")>
+         <eval-elisp (sql-send-string "select file.read('/home/qzdl/git/pgdeploy/DEV/file.read.sql')")>
 
   ATTRIBUTION: https://stackoverflow.com/questions/45241088/how-load-whole-content-file-in-function/45295368#45295368
 

@@ -1,9 +1,7 @@
-CREATE SCHEMA IF NOT EXISTS deploy;
-
-DROP FUNCTION IF EXISTS pg_deploy.reconcile_function(
+DROP FUNCTION IF EXISTS pgdeploy.reconcile_function(
     source_schema name, target_schema name);
 
-CREATE OR REPLACE FUNCTION pg_deploy.reconcile_function(
+CREATE OR REPLACE FUNCTION pgdeploy.reconcile_function(
     source_schema name, target_schema name)
 RETURNS SETOF TEXT AS
 $BODY$
@@ -21,7 +19,7 @@ BEGIN
       ELSE
         '-- LEFT and RIGHT of '''||s_objname||''' are equal'
       END AS ddl
-    FROM pg_deploy.object_difference(source_schema, target_schema, 'pg_deploy.cte_function')
+    FROM pgdeploy.object_difference(source_schema, target_schema, 'pgdeploy.cte_function')
     INNER JOIN pg_proc p ON p.oid = s_oid OR p.oid = t_oid
     LEFT JOIN pg_language l ON p.prolang = l.oid
     LEFT JOIN pg_aggregate a ON a.aggfnoid = p.oid
@@ -30,4 +28,4 @@ END;
 $BODY$
     LANGUAGE plpgsql STABLE;
 
-select * from pg_deploy.reconcile_function('testp', 'testr');
+--select * from pgdeploy.reconcile_function('testp', 'testr');

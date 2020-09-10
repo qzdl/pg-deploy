@@ -40,5 +40,5 @@ END;
 $BODY$
     LANGUAGE plpgsql STABLE;
 
-select * from deploy.cte_type('testp'::name, 'testr'::name);
-select * from deploy.object_difference('testp'::name, 'testr'::name, 'deploy.cte_type');
+--select * from deploy.cte_type('testp'::name, 'testr'::name);
+--select * from deploy.object_difference('testp'::name, 'testr'::name, 'deploy.cte_type');

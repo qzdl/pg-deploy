@@ -1,7 +1,7 @@
-DROP FUNCTION IF EXISTS pg_deploy.cte_attribute(
+DROP FUNCTION IF EXISTS pgdeploy.cte_attribute(
     source_schema name, target_schema name, soid oid, toid oid);
 
-CREATE OR REPLACE FUNCTION pg_deploy.cte_attribute(
+CREATE OR REPLACE FUNCTION pgdeploy.cte_attribute(
     source_schema name, target_schema name, soid oid, toid oid)
 RETURNS TABLE(
     nspname name, objname name, oid oid, id text) AS
@@ -24,7 +24,7 @@ END;
 $BODY$
     LANGUAGE plpgsql STABLE;
 
-select * from pg_deploy.cte_attribute(
-    'testp'::name, 'testr'::name,
-    (SELECT c.oid FROM pg_class c INNER JOIN pg_namespace n ON n.oid = c.relnamespace and c.relname = 'con' and n.nspname = 'testp'),
-    (SELECT c.oid FROM pg_class c INNER JOIN pg_namespace n ON n.oid = c.relnamespace and c.relname = 'con' and n.nspname = 'testr'));
+--select * from pgdeploy.cte_attribute(
+--    'testp'::name, 'testr'::name,
+--    (SELECT c.oid FROM pg_class c INNER JOIN pg_namespace n ON n.oid = c.relnamespace and c.relname = 'con' and n.nspname = 'testp'),
+--    (SELECT c.oid FROM pg_class c INNER JOIN pg_namespace n ON n.oid = c.relnamespace and c.relname = 'con' and n.nspname = 'testr'));

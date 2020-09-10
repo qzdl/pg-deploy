@@ -1,7 +1,7 @@
-DROP FUNCTION IF EXISTS pg_deploy.cte_relation(
+DROP FUNCTION IF EXISTS pgdeploy.cte_relation(
     source_schema name, target_schema name);
 
-CREATE FUNCTION pg_deploy.cte_relation(
+CREATE FUNCTION pgdeploy.cte_relation(
     source_schema name, target_schema name)
 RETURNS TABLE(
     nspname name, objname name, oid oid, id text) AS
@@ -22,4 +22,4 @@ END;
 $BODY$
     LANGUAGE plpgsql STABLE;
 
-SELECT * FROM pg_deploy.cte_relation('testp', 'testr');
+--SELECT * FROM pgdeploy.cte_relation('testp', 'testr');

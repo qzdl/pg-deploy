@@ -6,13 +6,11 @@
 -- collation
 -- expression trees (indexprs, indpred); if not nil, s=t? dispatch t, pass
 -- indices can be referenced by SCHEMA.INDEX_NAME, as they have to be unique per namespace
-CREATE SCHEMA IF NOT EXISTS deploy;
-
-DROP FUNCTION IF EXISTS pg_deploy.reconcile_index(
+DROP FUNCTION IF EXISTS pgdeploy.reconcile_index(
     source_schema name, source_oid oid,
     target_schema name, target_oid oid);
 
-CREATE OR REPLACE FUNCTION pg_deploy.reconcile_index(
+CREATE OR REPLACE FUNCTION pgdeploy.reconcile_index(
     source_schema name, source_oid oid,
     target_schema name, target_oid oid)
 RETURNS SETOF TEXT AS
@@ -28,12 +26,12 @@ BEGIN
         ELSE
           '-- LEFT and RIGHT of '''||s_objname||''' are equal'
         END AS ddl
-    FROM pg_deploy.object_difference(
-      source_schema, target_schema, 'pg_deploy.cte_index', source_oid, target_oid);
+    FROM pgdeploy.object_difference(
+      source_schema, target_schema, 'pgdeploy.cte_index', source_oid, target_oid);
 END;
 $BODY$
     LANGUAGE plpgsql STABLE;
 
-select * from pg_deploy.reconcile_index(
-  'testp'::name, (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testp' where relname = 'lnr'),
-  'testr'::name, (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testr' where relname = 'lnr'));
+--select * from pgdeploy.reconcile_index(
+--  'testp'::name, (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testp' where relname = 'lnr'),
+--  'testr'::name, (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testr' where relname = 'lnr'));

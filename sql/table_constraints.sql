@@ -6,11 +6,11 @@
 
 */
 
-DROP FUNCTION IF EXISTS pg_deploy.reconcile_constraints(
+DROP FUNCTION IF EXISTS pgdeploy.reconcile_constraints(
     source_schema name, source_rel name, source_oid oid,
     target_schema name, target_rel name, target_oid oid);
 
-CREATE OR REPLACE FUNCTION pg_deploy.reconcile_constraints(
+CREATE OR REPLACE FUNCTION pgdeploy.reconcile_constraints(
     source_schema name, source_rel name, source_oid oid,
     target_schema name, target_rel name, target_oid oid)
 RETURNS SETOF text AS
@@ -31,15 +31,15 @@ BEGIN
              ELSE
           '-- CONSTRAINT: LEFT and RIGHT of '''||s_id||''' are equal'
         END AS ddl
-      FROM pg_deploy.object_difference(
+      FROM pgdeploy.object_difference(
         source_schema, target_schema,
-        'pg_deploy.cte_constraint',
+        'pgdeploy.cte_constraint',
         source_oid, target_oid)
       ORDER BY ddl DESC;
 END;
 $BODY$
     LANGUAGE plpgsql STABLE;
 
-select * from pg_deploy.reconcile_constraints(
-    'testp'::name, 'con'::name, (SELECT c.oid FROM pg_class c INNER JOIN pg_namespace n ON n.oid = c.relnamespace and c.relname = 'con' and n.nspname = 'testp'),
-    'testr'::name, 'con'::name, (SELECT c.oid FROM pg_class c INNER JOIN pg_namespace n ON n.oid = c.relnamespace and c.relname = 'con' and n.nspname = 'testr'));
+--select * from pgdeploy.reconcile_constraints(
+--    'testp'::name, 'con'::name, (SELECT c.oid FROM pg_class c INNER JOIN pg_namespace n ON n.oid = c.relnamespace and c.relname = 'con' and n.nspname = 'testp'),
+--    'testr'::name, 'con'::name, (SELECT c.oid FROM pg_class c INNER JOIN pg_namespace n ON n.oid = c.relnamespace and c.relname = 'con' and n.nspname = 'testr'));

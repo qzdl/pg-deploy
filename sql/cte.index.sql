@@ -1,8 +1,8 @@
-DROP FUNCTION IF EXISTS pg_deploy.cte_index(
+DROP FUNCTION IF EXISTS pgdeploy.cte_index(
     source_schema name, target_schema name,
     source_oid oid, target_oid oid);
 
-CREATE FUNCTION pg_deploy.cte_index(
+CREATE FUNCTION pgdeploy.cte_index(
     source_schema name, target_schema name,
     source_oid oid, target_oid oid)
 RETURNS TABLE(
@@ -24,6 +24,6 @@ END;
 $BODY$
     LANGUAGE plpgsql STABLE;
 
-SELECT * FROM pg_deploy.cte_index('testp', 'testr',
-  (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testp' where relname = 'lnr'),
-  (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testr' where relname = 'lnr'));
+--SELECT * FROM pgdeploy.cte_index('testp', 'testr',
+--  (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testp' where relname = 'lnr'),
+--  (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testr' where relname = 'lnr'));

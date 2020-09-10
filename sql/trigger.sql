@@ -1,8 +1,8 @@
-DROP FUNCTION IF EXISTS pg_deploy.reconcile_trigger(
+DROP FUNCTION IF EXISTS pgdeploy.reconcile_trigger(
     source_schema name, source_oid oid,
     target_schema name, target_oid oid);
 
-CREATE OR REPLACE FUNCTION pg_deploy.reconcile_trigger(
+CREATE OR REPLACE FUNCTION pgdeploy.reconcile_trigger(
     source_schema name, source_oid oid,
     target_schema name, target_oid oid)
 RETURNS SETOF TEXT AS
@@ -18,9 +18,9 @@ BEGIN
         ELSE
           '-- TRIGGER: LEFT and RIGHT of '''||s_objname||''' on '''||c.relname||''' are equal'
         END AS ddl
-    FROM pg_deploy.object_difference(
+    FROM pgdeploy.object_difference(
       source_schema, target_schema,
-      'pg_deploy.cte_trigger', source_oid, target_oid) AS od
+      'pgdeploy.cte_trigger', source_oid, target_oid) AS od
     INNER JOIN pg_trigger as tg ON tg.oid = od.s_oid OR tg.oid = od.t_oid
     INNER JOIN pg_class AS c ON c.oid = tg.tgrelid
     ORDER BY ddl DESC; -- comments and drops first
@@ -28,6 +28,6 @@ END;
 $BODY$
     LANGUAGE plpgsql STABLE;
 
-select * from pg_deploy.reconcile_trigger(
-'testp'::name, (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testp' where relname = 'nlr'),
-'testr'::name, (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testr' where relname = 'nlr'))
+--select * from pgdeploy.reconcile_trigger(
+--'testp'::name, (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testp' where relname = 'nlr'),
+--'testr'::name, (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testr' where relname = 'nlr'))

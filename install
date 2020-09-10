@@ -1,11 +1,11 @@
-echo "Installing pg_deploy v$(cat ./VERSION)..."
+echo "Installing pgdeploy v$(cat ./VERSION)..."
 make install
 
 echo ""
-echo "Running initial tests to generate results/pg_deploy.out"
+echo "Running initial tests to generate results/pgdeploy.out"
 make installcheck
 
 # FIXME: add safety if !file
-cp results/pg_deploy.out expected/pg_deploy.out
+cp results/pgdeploy.out expected/pgdeploy.out
 
 make installcheck

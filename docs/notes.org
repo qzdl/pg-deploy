@@ -12,7 +12,7 @@ Filepaths & examples given in this document have been sourced from
 *If you're following along inside emacs*, change the environment variables and
 just exec the ~src~ blocks
 *Otherwise*, copy out the command
-#+begin_src shell :session pg-deploy
+#+begin_src shell :session pgdeploy
 PG_INSTANCE='test928'
 alias pse="psql --host dbdeva --port 8432 -d cs_$PG_INSTANCE -U csmaster"
 # test pse

@@ -1,7 +1,7 @@
 
 # Table of Contents
 
-1.  [`pg_deploy`](#org757db1b)
+1.  [`pgdeploy`](#org757db1b)
     1.  [Workflow](#org30bf2dc)
         1.  [Extension Install](#org82aaf99)
     2.  [Usage](#orga57ddd9)
@@ -12,7 +12,7 @@
 
 
 
-# <a name="#org757db1b"></a> `pg_deploy`
+# <a name="#org757db1b"></a> `pgdeploy`
 
 Postgres extension for maintaining database schemata using git.
 
@@ -53,7 +53,7 @@ be calculated and applied to the old_schema. The other direction would be a DROP
 statement that removes the excess table.
 
 To test the generated code simply apply the generated code to the original
-database schema and call the comparison function of the pg-deploy extension. The
+database schema and call the comparison function of the pgdeploy extension. The
 result should be a text without any sql commands: after applying the changes to
 the source state it should be transformed into the target state, so there should
 be no difference.

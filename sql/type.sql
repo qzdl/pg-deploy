@@ -102,7 +102,7 @@ $BODY$
     LANGUAGE plpgsql STABLE;
 
 
-select * from deploy.reconcile_type('testp', 'testr');
+--select * from deploy.reconcile_type('testp', 'testr');
 
 
 

@@ -14,7 +14,7 @@
 
 DO $$
 DECLARE
-    rdir text :=  '/home/qzdl/git/pg-deploy/';
+    rdir text :=  '/home/qzdl/git/pgdeploy/';
     func text;
 BEGIN
     raise notice '

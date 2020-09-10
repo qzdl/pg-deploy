@@ -1,8 +1,8 @@
-DROP FUNCTION if exists pg_deploy.reconcile_table_attributes (
+DROP FUNCTION if exists pgdeploy.reconcile_table_attributes (
     source_schema name, source_rel name, source_oid oid,
     target_schema name, target_rel name, target_oid oid);
 
-CREATE OR REPLACE FUNCTION pg_deploy.reconcile_table_attributes(
+CREATE OR REPLACE FUNCTION pgdeploy.reconcile_table_attributes(
     source_schema name, source_rel name, source_oid oid,
     target_schema name, target_rel name, target_oid oid)
 RETURNS SETOF text AS
@@ -28,9 +28,9 @@ BEGIN
           ) ELSE NULL
           END AS column_default_value,
           CASE WHEN a.attnotnull = true THEN 'NOT NULL' ELSE 'NULL' END AS column_not_null
-          FROM pg_deploy.object_difference(
+          FROM pgdeploy.object_difference(
              source_schema, target_schema,
-             'pg_deploy.cte_attribute', source_oid, target_oid) AS od
+             'pgdeploy.cte_attribute', source_oid, target_oid) AS od
           LEFT JOIN pg_catalog.pg_attribute a
             ON ((a.attrelid = od.t_oid and a.attname = od.t_objname)
                  OR (a.attrelid = od.s_oid AND a.attname = od.s_objname))
@@ -53,14 +53,14 @@ END;
 $BODY$
     LANGUAGE plpgsql STABLE;
 
-select * FROM pg_deploy.object_difference(
-  'testp'::name, 'testr'::name, 'pg_deploy.cte_attribute',
+select * FROM pgdeploy.object_difference(
+  'testp'::name, 'testr'::name, 'pgdeploy.cte_attribute',
    (SELECT c.oid FROM pg_class c INNER JOIN pg_namespace n
       ON n.oid = c.relnamespace and c.relname = 'a' and n.nspname = 'testp'),
    (SELECT c.oid FROM pg_class c INNER JOIN pg_namespace n
       ON n.oid = c.relnamespace and c.relname = 'a' and n.nspname = 'testr'))
       order by s_objname, t_objname;
 
-select * from pg_deploy.reconcile_table_attributes(
-    'testp'::name, 'a'::name, (SELECT c.oid FROM pg_class c INNER JOIN pg_namespace n ON n.oid = c.relnamespace and c.relname = 'a' and n.nspname = 'testp'),
-    'testr'::name, 'a'::name, (SELECT c.oid FROM pg_class c INNER JOIN pg_namespace n ON n.oid = c.relnamespace and c.relname = 'a' and n.nspname = 'testr'));
+-- select * from pgdeploy.reconcile_table_attributes(
+--     'testp'::name, 'a'::name, (SELECT c.oid FROM pg_class c INNER JOIN pg_namespace n ON n.oid = c.relnamespace and c.relname = 'a' and n.nspname = 'testp'),
+--     'testr'::name, 'a'::name, (SELECT c.oid FROM pg_class c INNER JOIN pg_namespace n ON n.oid = c.relnamespace and c.relname = 'a' and n.nspname = 'testr'));

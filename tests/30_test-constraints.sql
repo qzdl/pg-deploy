@@ -17,21 +17,22 @@
 DROP TABLE IF EXISTS testp.con;
 DROP TABLE IF EXISTS testr.con;
 CREATE TABLE testp.con(
-    i int constraint yeah CHECK (i>0),
-    ii int check (ii > i),
-    iii int check (0>iii));
-create table testr.con(
-    i int constraint hmm CHECK(i>ii),
-    ii int,
-    iii int check (0>iii));
+    i INT CONSTRAINT yeah CHECK (i>0),
+    ii INT CHECK (ii > i),
+    iii INT CHECK (0>iii));
+
+CREATE TABLE testr.con(
+    i INT CONSTRAINT hmm CHECK(i>ii),
+    ii INT,
+    iii INT CHECK (0>iii));
 
 -- expecting:
 --   drop yeah; create hmm
 --   drop {anon-name}check
-SELECT deploy.reconcile_constraints('testp', 'con', 33910::int,
-                                    'testr', 'con', 33920::int);
+SELECT deploy.reconcile_constraints('testp', 'con', 33910::INT,
+                                    'testr', 'con', 33920::INT);
 
-SELECT conname, pg_get_constraintdef(c.oid) as constrainddef
+SELECT conname, pg_get_constraintdef(c.oid) AS constrainddef
 FROM pg_constraint c
 WHERE conrelid=(
     SELECT attrelid FROM pg_attribute
@@ -43,7 +44,11 @@ WHERE conrelid=(
     ) AND attname='tableoid');
 
 
-select * from deploy.reconcile_constraints(
-    'testp'::name, 'con'::name, (SELECT c.oid FROM pg_class c INNER JOIN pg_namespace n ON n.oid = c.relnamespace and c.relname = 'con' and n.nspname = 'testp'),
-    'testr'::name, 'con'::name, (SELECT c.oid FROM pg_class c INNER JOIN pg_namespace n ON n.oid = c.relnamespace and c.relname = 'con' and n.nspname = 'testr'))
-order by reconcile_constraints desc
+SELECT * FROM deploy.reconcile_constraints(
+    'testp'::INT, 'con'::NAME,
+        (SELECT c.oid FROM pg_class c
+          INNER JOIN pg_namespace n ON n.oid = c.relnamespace AND c.relname = 'con' AND n.nspname = 'testp'),
+    'testr'::NAME, 'con'::NAME,
+        (SELECT c.oid FROM pg_class c
+          INNER JOIN pg_namespace n ON n.oid = c.relnamespace AND c.relname = 'con' AND n.nspname = 'testr'))
+ORDER BY reconcile_constraints DESC;

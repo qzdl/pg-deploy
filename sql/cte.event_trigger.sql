@@ -1,6 +1,6 @@
-DROP FUNCTION IF EXISTS pg_deploy.cte_event_trigger(_ name, __ name);
+DROP FUNCTION IF EXISTS pgdeploy.cte_event_trigger(_ name, __ name);
 
-CREATE FUNCTION pg_deploy.cte_event_trigger(_ name, __ name)
+CREATE FUNCTION pgdeploy.cte_event_trigger(_ name, __ name)
 RETURNS TABLE(
     nspname name, objname name, oid oid, id text) AS
 $BODY$
@@ -21,7 +21,7 @@ END;
 $BODY$
     LANGUAGE plpgsql STABLE;
 
-SELECT * FROM pg_deploy.cte_event_trigger(''::name,''::name);
-
-SELECT * FROM pg_deploy.object_difference(
-  'source'::name,'target'::name,'pg_deploy.cte_event_trigger'::name)
+--SELECT * FROM pgdeploy.cte_event_trigger(''::name,''::name);
+--
+--SELECT * FROM pgdeploy.object_difference(
+--  'source'::name,'target'::name,'pgdeploy.cte_event_trigger'::name)

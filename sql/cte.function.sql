@@ -1,7 +1,7 @@
-DROP FUNCTION IF EXISTS pg_deploy.cte_function(
+DROP FUNCTION IF EXISTS pgdeploy.cte_function(
     source_schema name, target_schema name);
 
-CREATE FUNCTION pg_deploy.cte_function(
+CREATE FUNCTION pgdeploy.cte_function(
     source_schema name, target_schema name)
 RETURNS TABLE(
     nspname name, objname name, oid oid, id text) AS
@@ -27,7 +27,7 @@ END;
 $BODY$
     LANGUAGE plpgsql STABLE;
 
-SELECT *  FROM pg_deploy.cte_function('testp', 'testr');
+--SELECT *  FROM pgdeploy.cte_function('testp', 'testr');
 
 -- select p.prosrc, p.* from pg_aggregate a
 -- inner join pg_proc p on a.aggfnoid = p.oid

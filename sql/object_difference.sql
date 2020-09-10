@@ -1,14 +1,14 @@
--- pg_deploy.object_difference.sql
+-- pgdeploy.object_difference.sql
 --
 -- ARGUMENT `cte_fun':
 --   must return a set of `(nspname name, objname name, oid oid, id text)' that
 --   corresponds to the relevant properties of each object. See
---   `./pg_deploy.cte.function.sql` for an example.
+--   `./pgdeploy.cte.function.sql` for an example.
 
-DROP FUNCTION IF EXISTS pg_deploy.object_difference(
+DROP FUNCTION IF EXISTS pgdeploy.object_difference(
     source_schema name, target_schema name, cte_fun text, soid oid, toid oid);
 
-CREATE OR REPLACE FUNCTION pg_deploy.object_difference(
+CREATE OR REPLACE FUNCTION pgdeploy.object_difference(
     source_schema name, target_schema name, cte_fun text,
     soid oid default NULL, toid oid default NULL)
 RETURNS TABLE(
@@ -63,4 +63,4 @@ BEGIN
     ) as AAA', cte_fun, source_schema, target_schema) USING source_schema, target_schema;
 END; $BODY$ LANGUAGE plpgsql STABLE;
 
-SELECT * FROM pg_deploy.object_difference('testp'::name, 'testr'::name, 'pg_deploy.cte_function'::text);
+--SELECT * FROM pgdeploy.object_difference('testp'::name, 'testr'::name, 'pgdeploy.cte_function'::text);
