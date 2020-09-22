@@ -23,7 +23,7 @@ drop trigger if exists nlr_trig on testr.nlr;
 create trigger nlr_trig before update on testr.nlr for each row execute procedure testr.ttdep();  -- *expected output too
 insert into res
 select 1.0, 'nlr: create only' union
-select 1.1, deploy.reconcile_trigger(
+select 1.1, pgdeploy.reconcile_trigger(
     'testp'::name,
     (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testp' where relname = 'nlr'),
     'testr'::name,
@@ -41,7 +41,7 @@ drop trigger if exists lnr_trig on testr.lnr;
 create trigger lnr_trig before update on testp.lnr for each row execute procedure testp.ttdep();
 INSERT into res
 select 2.0, 'lnr: drop only' union
-select 2.1, deploy.reconcile_trigger(
+select 2.1, pgdeploy.reconcile_trigger(
     'testp'::name,
     (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testp' where relname = 'lnr'),
     'testr'::name,
@@ -62,7 +62,7 @@ create trigger lrm_trig before update on testp.lrm for each row execute procedur
 create trigger lrm_trig after update on testr.lrm for each row execute procedure testr.ttdep(); -- *expected output too
 INSERT into res
 select 3.0, 'lrd: drop create' union
-select 3.1, deploy.reconcile_trigger(
+select 3.1, pgdeploy.reconcile_trigger(
     'testp'::name,
     (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testp' where relname = 'lrm'),
     'testr'::name,
@@ -80,7 +80,7 @@ create trigger lrnm_trig before update on testp.lrnm for each row execute proced
 create trigger lrnm_trig before update on testr.lrnm for each row execute procedure testr.ttdep();
 INSERT into res
 select 4.0, 'lrnd: pass' union
-select 4.1, deploy.reconcile_trigger(
+select 4.1, pgdeploy.reconcile_trigger(
     'testp'::name,
     (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testp' where relname = 'lrnm'),
     'testr'::name,
@@ -102,7 +102,7 @@ create trigger lrnmi_trig before update on testr.lrnm2 for each row execute proc
 create trigger lrnmii_trig before update on testr.lrnm2 for each row execute procedure testr.ttdep();
 INSERT into res
 select 5.0, 'lrnm2: pass (2 triggers)' union
-select 5.1, deploy.reconcile_trigger(
+select 5.1, pgdeploy.reconcile_trigger(
     'testp'::name,
     (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testp' where relname = 'lrnm2'),
     'testr'::name,
@@ -123,7 +123,7 @@ create trigger nlrnlii_trig before update on testp.nlrnrl for each row execute p
 create trigger nlrnli_trig before update on testr.nlrnrl for each row execute procedure testr.ttdep();
 INSERT into res
 select 6.0, 'nlrnrl: drop ii, create i, (2 triggers)' union
-select 6.1, deploy.reconcile_trigger(
+select 6.1, pgdeploy.reconcile_trigger(
     'testp'::name,
     (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testp' where relname = 'nlrnrl'),
     'testr'::name,

@@ -2,17 +2,21 @@
 EXTENSION = pgdeploy
 EXTVERSION = 0.0.1
 PGUSER	= postgres
-PG_CONFIG = pg_config
 
-#DATA = $(wildcard sql/*.sql)
+TESTS = $(wildcard test/sql/*.sql)
+REGRESS = $(patsubst test/sql/%.sql,%,$(TESTS))
+REGRESS_OPTS = --inputdir=test --load-language=plpgsql
 
-# REGRESS = regression_tests
+
 all: $(EXTENSION)--$(EXTVERSION).sql
-	
-$(EXTENSION)--$(EXTVERSION).sql	:	sql/reconcile_schema.sql $(sort $(filter-out $(wildcard sql/reconcile_schema.sql),$(wildcard sql/*.sql)))
+
+$(EXTENSION)--$(EXTVERSION).sql	:	src/reconcile_schema.sql $(sort $(filter-out $(wildcard src/reconcile_schema.sql),$(wildcard src/*.sql)))
 	cat $^ > $@
 DATA = $(EXTENSION)--$(EXTVERSION).sql
 EXTRA_CLEAN = $(EXTENSION)--$(EXTVERSION).sql
 
+
+
+PG_CONFIG = pg_config
 PGXS := $(shell $(PG_CONFIG) --pgxs)
 include $(PGXS)

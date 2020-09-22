@@ -67,4 +67,4 @@ select pg_get_function_identity_arguments((select oid from pg_proc where proname
 select pg_get_functiondef((select oid from pg_proc where proname = 'cavg'));
 
 
-select * from deploy.reconcile_function('testp'::name, 'testr'::name)
+select * from pgdeploy.reconcile_function('testp'::name, 'testr'::name)

@@ -43,7 +43,7 @@ drop index if exists testr.nlr_idx;
 create index nlr_idx on testr.nlr using hash (a); -- *expected output too
 INSERT into res
 select 1.0, 'nlr: create only' union
-select 1.1, deploy.reconcile_index(
+select 1.1, pgdeploy.reconcile_index(
     'testp'::name,
     (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testp' where relname = 'nlr'),
     'testr'::name,
@@ -60,7 +60,7 @@ drop index if exists testr.lnr_idx;
 create index lnr_idx on testp.lnr using hash (a);
 INSERT into res
 select 2.0, 'lnr: drop only' union
-select 2.1, deploy.reconcile_index(
+select 2.1, pgdeploy.reconcile_index(
     'testp'::name,
     (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testp' where relname = 'lnr'),
     'testr'::name,
@@ -80,7 +80,7 @@ create index lrm_idx on testp.lrm using hash (a);
 create index lrm_idx on testr.lrm using hash (b); -- *expected output too
 INSERT into res
 select 3.0, 'lrd: drop create' union
-select 3.1, deploy.reconcile_index(
+select 3.1, pgdeploy.reconcile_index(
     'testp'::name,
     (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testp' where relname = 'lrm'),
     'testr'::name,
@@ -97,7 +97,7 @@ create index lrnm_idx on testp.lrnm using hash (a);
 create index lrnm_idx on testr.lrnm using hash (a);
 INSERT into res
 select 4.0, 'lrnd: pass' union
-select 4.1, deploy.reconcile_index(
+select 4.1, pgdeploy.reconcile_index(
     'testp'::name,
     (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testp' where relname = 'lrnm'),
     'testr'::name,

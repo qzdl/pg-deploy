@@ -9,10 +9,10 @@
 
 -- CREATE OR WARN
 -- TODO: check if the contents of [RANGE | ENUM] are equal, dispatch accordingly
-DROP FUNCTION IF EXISTS deploy.reconcile_type(
+DROP FUNCTION IF EXISTS pgdeploy.reconcile_type(
     source_schema name, target_schema name);
 
-CREATE OR REPLACE FUNCTION deploy.reconcile_type(
+CREATE OR REPLACE FUNCTION pgdeploy.reconcile_type(
     source_schema name, target_schema name)
 RETURNS SETOF TEXT AS
 $BODY$
@@ -22,7 +22,7 @@ BEGIN
       SELECT
         t.typname, t.typlen, t.typrelid,
         s_schema, s_objname, s_oid, t_schema, t_objname, t_oid
-      FROM deploy.object_difference(source_schema, target_schema, 'deploy.cte_type')
+      FROM pgdeploy.object_difference(source_schema, target_schema, 'pgdeploy.cte_type')
       INNER JOIN pg_type t ON t.oid = s_oid OR t.oid = t_oid
     ), range AS (
       SELECT i.oid, array_to_string(ARRAY[
@@ -102,7 +102,7 @@ $BODY$
     LANGUAGE plpgsql STABLE;
 
 
---select * from deploy.reconcile_type('testp', 'testr');
+--select * from pgdeploy.reconcile_type('testp', 'testr');
 
 
 
@@ -111,7 +111,7 @@ $BODY$
 --       SELECT
 --         t.oid, t.typname, t.typlen, t.typrelid,
 --         s_schema, s_objname, t_schema, t_objname
---       FROM deploy.object_difference('testp'::name, 'testr'::name, 'deploy.cte_type')
+--       FROM pgdeploy.object_difference('testp'::name, 'testr'::name, 'pgdeploy.cte_type')
 --       INNER JOIN pg_type t ON t.oid = s_oid OR t.oid = t_oid
 --     ), range AS (
 --       SELECT i.oid, array_to_string(ARRAY[
@@ -146,7 +146,7 @@ $BODY$
 --         t.oid, t.typname, t.typlen, t.typrelid,
 --         s_schema, s_objname, t_schema, t_objname,
 --         COALESCE(s_schema, t_schema) AS schemata
---       FROM deploy.object_difference('testp'::name, 'testr'::name, 'deploy.cte_type')
+--       FROM pgdeploy.object_difference('testp'::name, 'testr'::name, 'pgdeploy.cte_type')
 --       INNER JOIN pg_type t ON t.oid = s_oid OR t.oid = t_oid
 --     ), range AS (
 --       SELECT i.oid, array_to_string(ARRAY[
@@ -212,7 +212,7 @@ $BODY$
 --       SELECT
 --         t.oid, n.nspname, t.typname, t.typlen, t.typrelid,
 --         s_schema, s_objname, t_schema, t_objname
---       FROM deploy.object_difference('testp'::name, 'testr'::name, 'deploy.cte_type')
+--       FROM pgdeploy.object_difference('testp'::name, 'testr'::name, 'pgdeploy.cte_type')
 --       INNER JOIN pg_type t ON t.oid = s_oid OR t.oid = t_oid
 --       INNER JOIN pg_namespace n ON n.oid = t.typnamespace
 --     ), range AS (

@@ -1,7 +1,7 @@
-DROP FUNCTION IF EXISTS deploy.cte_type(
+DROP FUNCTION IF EXISTS pgdeploy.cte_type(
     source_schema name, target_schema name);
 
-CREATE OR REPLACE FUNCTION deploy.cte_type(
+CREATE OR REPLACE FUNCTION pgdeploy.cte_type(
     source_schema name, target_schema name)
 RETURNS TABLE(
     nspname name, objname name, oid oid, id text) AS
@@ -40,5 +40,5 @@ END;
 $BODY$
     LANGUAGE plpgsql STABLE;
 
---select * from deploy.cte_type('testp'::name, 'testr'::name);
---select * from deploy.object_difference('testp'::name, 'testr'::name, 'deploy.cte_type');
+--select * from pgdeploy.cte_type('testp'::name, 'testr'::name);
+--select * from pgdeploy.object_difference('testp'::name, 'testr'::name, 'pgdeploy.cte_type');
