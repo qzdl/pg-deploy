@@ -1,0 +1,133 @@
+BEGIN transaction;
+CREATE EXTENSION pgdeploy;
+/* STRUCTURAL TESTS FOR THE EXTENSION
+  - check for table structure
+  - functions and their parameter signature
+*/
+SELECT table_name, column_name, data_type FROM information_schema.columns
+WHERE table_schema = 'pgdeploy' ORDER BY table_name, column_name;
+ table_name | column_name | data_type 
+------------+-------------+-----------
+(0 rows)
+
+/* Check for routines (expect 3 *(character varying)) */
+SELECT routines.routine_name, parameters.data_type, parameters.ordinal_position
+FROM information_schema.routines
+    LEFT JOIN information_schema.parameters ON routines.specific_name=parameters.specific_name
+WHERE routines.specific_schema='pgdeploy'
+ORDER BY routines.routine_name, parameters.ordinal_position;
+        routine_name        | data_type | ordinal_position 
+----------------------------+-----------+------------------
+ cte_attribute              | name      |                1
+ cte_attribute              | name      |                2
+ cte_attribute              | oid       |                3
+ cte_attribute              | oid       |                4
+ cte_attribute              | name      |                5
+ cte_attribute              | name      |                6
+ cte_attribute              | oid       |                7
+ cte_attribute              | text      |                8
+ cte_constraint             | name      |                1
+ cte_constraint             | name      |                2
+ cte_constraint             | oid       |                3
+ cte_constraint             | oid       |                4
+ cte_constraint             | name      |                5
+ cte_constraint             | name      |                6
+ cte_constraint             | oid       |                7
+ cte_constraint             | text      |                8
+ cte_event_trigger          | name      |                1
+ cte_event_trigger          | name      |                2
+ cte_event_trigger          | name      |                3
+ cte_event_trigger          | name      |                4
+ cte_event_trigger          | oid       |                5
+ cte_event_trigger          | text      |                6
+ cte_function               | name      |                1
+ cte_function               | name      |                2
+ cte_function               | name      |                3
+ cte_function               | name      |                4
+ cte_function               | oid       |                5
+ cte_function               | text      |                6
+ cte_index                  | name      |                1
+ cte_index                  | name      |                2
+ cte_index                  | oid       |                3
+ cte_index                  | oid       |                4
+ cte_index                  | name      |                5
+ cte_index                  | name      |                6
+ cte_index                  | oid       |                7
+ cte_index                  | text      |                8
+ cte_relation               | name      |                1
+ cte_relation               | name      |                2
+ cte_relation               | name      |                3
+ cte_relation               | name      |                4
+ cte_relation               | oid       |                5
+ cte_relation               | text      |                6
+ cte_trigger                | name      |                1
+ cte_trigger                | name      |                2
+ cte_trigger                | oid       |                3
+ cte_trigger                | oid       |                4
+ cte_trigger                | name      |                5
+ cte_trigger                | name      |                6
+ cte_trigger                | oid       |                7
+ cte_trigger                | text      |                8
+ cte_type                   | name      |                1
+ cte_type                   | name      |                2
+ cte_type                   | name      |                3
+ cte_type                   | name      |                4
+ cte_type                   | oid       |                5
+ cte_type                   | text      |                6
+ object_difference          | name      |                1
+ object_difference          | name      |                2
+ object_difference          | text      |                3
+ object_difference          | oid       |                4
+ object_difference          | oid       |                5
+ object_difference          | name      |                6
+ object_difference          | name      |                7
+ object_difference          | oid       |                8
+ object_difference          | text      |                9
+ object_difference          | name      |               10
+ object_difference          | name      |               11
+ object_difference          | oid       |               12
+ object_difference          | text      |               13
+ reconcile_constraints      | name      |                1
+ reconcile_constraints      | name      |                2
+ reconcile_constraints      | oid       |                3
+ reconcile_constraints      | name      |                4
+ reconcile_constraints      | name      |                5
+ reconcile_constraints      | oid       |                6
+ reconcile_event_trigger    |           |                 
+ reconcile_function         | name      |                1
+ reconcile_function         | name      |                2
+ reconcile_index            | name      |                1
+ reconcile_index            | oid       |                2
+ reconcile_index            | name      |                3
+ reconcile_index            | oid       |                4
+ reconcile_relation         | name      |                1
+ reconcile_relation         | name      |                2
+ reconcile_schema           | name      |                1
+ reconcile_schema           | name      |                2
+ reconcile_schema           | integer   |                3
+ reconcile_schema           | text      |                4
+ reconcile_table_attributes | name      |                1
+ reconcile_table_attributes | name      |                2
+ reconcile_table_attributes | oid       |                3
+ reconcile_table_attributes | name      |                4
+ reconcile_table_attributes | name      |                5
+ reconcile_table_attributes | oid       |                6
+ reconcile_trigger          | name      |                1
+ reconcile_trigger          | oid       |                2
+ reconcile_trigger          | name      |                3
+ reconcile_trigger          | oid       |                4
+(98 rows)
+
+/* Check for triggers (expect 0) */
+SELECT event_object_table AS table_name, trigger_schema, trigger_name,
+       string_agg(event_manipulation, ',') AS event, action_timing,
+       action_condition AS condition
+FROM information_schema.triggers
+WHERE event_object_schema = 'pgdeploy' group by 1,2,3,5,6 order by table_name;
+ table_name | trigger_schema | trigger_name | event | action_timing | condition 
+------------+----------------+--------------+-------+---------------+-----------
+(0 rows)
+
+-- CLEAN UP
+DROP EXTENSION pgdeploy CASCADE;
+ROLLBACK;

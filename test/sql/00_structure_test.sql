@@ -1,5 +1,5 @@
 BEGIN transaction;
-CREATE extension pgdeploy;
+CREATE EXTENSION pgdeploy;
 /* STRUCTURAL TESTS FOR THE EXTENSION
   - check for table structure
   - functions and their parameter signature
@@ -22,5 +22,5 @@ FROM information_schema.triggers
 WHERE event_object_schema = 'pgdeploy' group by 1,2,3,5,6 order by table_name;
 
 -- CLEAN UP
-DROP extension pgdeploy cascade;
+DROP EXTENSION pgdeploy CASCADE;
 ROLLBACK;
