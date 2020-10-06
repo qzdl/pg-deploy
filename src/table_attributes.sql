@@ -1,7 +1,3 @@
-DROP FUNCTION if exists pgdeploy.reconcile_table_attributes (
-    source_schema name, source_rel name, source_oid oid,
-    target_schema name, target_rel name, target_oid oid);
-
 CREATE OR REPLACE FUNCTION pgdeploy.reconcile_table_attributes(
     source_schema name, source_rel name, source_oid oid,
     target_schema name, target_rel name, target_oid oid)
