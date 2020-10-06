@@ -1,6 +1,3 @@
-DROP FUNCTION IF EXISTS pgdeploy.reconcile_relation(
-    source_schema name, target_schema name);
-
 CREATE OR REPLACE FUNCTION pgdeploy.reconcile_relation(
     source_schema name, target_schema name)
 RETURNS SETOF TEXT AS

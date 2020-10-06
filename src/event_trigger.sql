@@ -1,7 +1,4 @@
 -- split / replace '--deploy--' as signifier for deploy owned event triggers
-
-DROP FUNCTION IF EXISTS pgdeploy.reconcile_event_trigger();
-
 CREATE OR REPLACE FUNCTION pgdeploy.reconcile_event_trigger()
 RETURNS SETOF TEXT AS
 $BODY$

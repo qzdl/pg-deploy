@@ -16,7 +16,7 @@ alter table testp.tdep add CONSTRAINT cdep CHECK (a > testp.fdep(a) -1);
 -- drop function testp.fdep;
 
 -- i think the view can be interrogated here; walk the tree down and collect object definitions
-select * from report.dependency_tree(ARRAY((select oid from pg_proc where proname = 'fdep')))
+select * from report.dependency_tree(ARRAY((select oid from pg_proc where proname = 'fdep')));
 
 --- ROW TRIGGER DEPENDENCY
 

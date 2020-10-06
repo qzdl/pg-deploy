@@ -1,7 +1,3 @@
-DROP FUNCTION IF EXISTS pgdeploy.reconcile_trigger(
-    source_schema name, source_oid oid,
-    target_schema name, target_oid oid);
-
 CREATE OR REPLACE FUNCTION pgdeploy.reconcile_trigger(
     source_schema name, source_oid oid,
     target_schema name, target_oid oid)

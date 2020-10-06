@@ -1,6 +1,3 @@
-DROP FUNCTION IF EXISTS pgdeploy.cte_function(
-    source_schema name, target_schema name);
-
 CREATE FUNCTION pgdeploy.cte_function(
     source_schema name, target_schema name)
 RETURNS TABLE(

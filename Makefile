@@ -3,7 +3,7 @@ EXTENSION = pgdeploy
 EXTVERSION = 0.0.1
 PGUSER	= postgres
 
-TESTS = $(wildcard test/sql/*.sql)
+TESTS = $(sort $(wildcard test/sql/*.sql))
 REGRESS = $(patsubst test/sql/%.sql,%,$(TESTS))
 REGRESS_OPTS = --inputdir=test --load-language=plpgsql
 

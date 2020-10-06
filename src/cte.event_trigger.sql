@@ -1,5 +1,3 @@
-DROP FUNCTION IF EXISTS pgdeploy.cte_event_trigger(_ name, __ name);
-
 CREATE FUNCTION pgdeploy.cte_event_trigger(_ name, __ name)
 RETURNS TABLE(
     nspname name, objname name, oid oid, id text) AS

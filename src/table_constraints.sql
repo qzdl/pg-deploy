@@ -5,11 +5,6 @@
     - barf a sensible comment for that which remains unchanged
 
 */
-
-DROP FUNCTION IF EXISTS pgdeploy.reconcile_constraints(
-    source_schema name, source_rel name, source_oid oid,
-    target_schema name, target_rel name, target_oid oid);
-
 CREATE OR REPLACE FUNCTION pgdeploy.reconcile_constraints(
     source_schema name, source_rel name, source_oid oid,
     target_schema name, target_rel name, target_oid oid)

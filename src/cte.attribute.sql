@@ -1,6 +1,3 @@
-DROP FUNCTION IF EXISTS pgdeploy.cte_attribute(
-    source_schema name, target_schema name, soid oid, toid oid);
-
 CREATE OR REPLACE FUNCTION pgdeploy.cte_attribute(
     source_schema name, target_schema name, soid oid, toid oid)
 RETURNS TABLE(

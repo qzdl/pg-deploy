@@ -4,10 +4,6 @@
 --   must return a set of `(nspname name, objname name, oid oid, id text)' that
 --   corresponds to the relevant properties of each object. See
 --   `./pgdeploy.cte.function.sql` for an example.
-
-DROP FUNCTION IF EXISTS pgdeploy.object_difference(
-    source_schema name, target_schema name, cte_fun text, soid oid, toid oid);
-
 CREATE OR REPLACE FUNCTION pgdeploy.object_difference(
     source_schema name, target_schema name, cte_fun text,
     soid oid default NULL, toid oid default NULL)

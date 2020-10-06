@@ -6,10 +6,6 @@
 -- collation
 -- expression trees (indexprs, indpred); if not nil, s=t? dispatch t, pass
 -- indices can be referenced by SCHEMA.INDEX_NAME, as they have to be unique per namespace
-DROP FUNCTION IF EXISTS pgdeploy.reconcile_index(
-    source_schema name, source_oid oid,
-    target_schema name, target_oid oid);
-
 CREATE OR REPLACE FUNCTION pgdeploy.reconcile_index(
     source_schema name, source_oid oid,
     target_schema name, target_oid oid)

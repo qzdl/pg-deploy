@@ -1,7 +1,3 @@
-DROP FUNCTION IF EXISTS pgdeploy.cte_index(
-    source_schema name, target_schema name,
-    source_oid oid, target_oid oid);
-
 CREATE FUNCTION pgdeploy.cte_index(
     source_schema name, target_schema name,
     source_oid oid, target_oid oid)

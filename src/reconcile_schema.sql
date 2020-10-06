@@ -6,10 +6,7 @@ For instance a table can be dependent on a type or a function,
 a function can be dependent on a type, thus the order is table, function, type.
 */
 
---CREATE SCHEMA IF NOT EXISTS pgdeploy;
-DROP FUNCTION IF EXISTS pgdeploy.reconcile_schema(
-    source_schema name, target_schema name);
-
+CREATE SCHEMA IF NOT EXISTS pgdeploy;
 CREATE OR REPLACE FUNCTION pgdeploy.reconcile_schema(
     source_schema name, target_schema name)
 RETURNS TABLE(priority int, ddl text) AS
