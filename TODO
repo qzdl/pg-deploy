@@ -4,3 +4,7 @@
 # pg objects
 - views
 - sequences
+
+# TESTS
+- event trigger test: test/sql/41_test-event_trigger.sql
+- aggregate function test: test/sql/60_test-function.sql

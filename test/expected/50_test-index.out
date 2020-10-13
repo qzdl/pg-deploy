@@ -1,4 +1,3 @@
-
 --     ██               ██                     ██                     ██
 --    ░░               ░██                    ░██                    ░██
 --     ██ ███████      ░██  █████  ██   ██   ██████  █████   ██████ ██████  ██████
@@ -7,16 +6,13 @@
 --    ░██ ░██  ░██░██  ░██░██░░░░   ██░██     ░██  ░██░░░░  ░░░░░██  ░██   ░░░░░██
 --    ░██ ███  ░██░░██████░░██████ ██ ░░██    ░░██ ░░██████ ██████   ░░██  ██████
 --    ░░ ░░░   ░░  ░░░░░░  ░░░░░░ ░░   ░░      ░░   ░░░░░░ ░░░░░░     ░░  ░░░░░░
-
 BEGIN;
 SET client_min_messages TO WARNING;
 CREATE EXTENSION pgdeploy;
-
 CREATE SCHEMA if NOT EXISTS testr;
 CREATE SCHEMA if NOT EXISTS testp;
 DROP TABLE IF EXISTS testp.idx;
 DROP TABLE IF EXISTS testr.idx;
-
 CREATE TABLE testp.idx (
     a text,
     b int,
@@ -24,7 +20,6 @@ CREATE TABLE testp.idx (
     d uuid
 );
 CREATE INDEX idx_hash on testp.idx using hash (d);
-
 CREATE TABLE testr.idx (
     a text,
     b int,
@@ -32,13 +27,11 @@ CREATE TABLE testr.idx (
     d uuid
 );
 CREATE INDEX idx_hash on testr.idx using hash (b);
-
 drop table if exists res;
 create table res (idx float, ddl text);
 -----|| NO LEFT, RIGHT
 -- expecting CREATE from definition testr ONTO testp
 --   as "create index nlr_idx on testp.nlr using hash (a);"
-
 drop table if exists testp.nlr;
 drop table if exists testr.nlr;
 create table testp.nlr(a text);
@@ -104,14 +97,22 @@ INSERT into res
 select 4.0, 'lrnd: pass' union
 select 4.1, pgdeploy.reconcile_index(
     'testp'::name,
-    (select c.oid from pg_class c
-      inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testp' where relname = 'lrnm'),
+    (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testp' where relname = 'lrnm'),
     'testr'::name,
-    (select c.oid from pg_class c
-      inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testr' where relname = 'lrnm'));
-
-
+    (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testr' where relname = 'lrnm'));
 select * from res order by idx asc, ddl desc;
+ idx |                       ddl                        
+-----+--------------------------------------------------
+   1 | nlr: create only
+ 1.1 | CREATE INDEX nlr_idx ON testp.nlr USING hash (a)
+   2 | lnr: drop only
+ 2.1 | DROP INDEX IF EXISTS testp.lnr_idx
+   3 | lrd: drop create
+ 3.1 | DROP INDEX IF EXISTS testp.lrm_idx
+ 3.1 | CREATE INDEX lrm_idx ON testp.lrm USING hash (b)
+   4 | lrnd: pass
+ 4.1 | -- LEFT and RIGHT of 'lrnm_idx' are equal
+(9 rows)
 
 -- CLEAN UP
 DROP EXTENSION pgdeploy CASCADE;

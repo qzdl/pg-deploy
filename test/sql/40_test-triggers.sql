@@ -1,25 +1,25 @@
 
 
+BEGIN;
+SET client_min_messages TO WARNING;
+CREATE EXTENSION pgdeploy;
+CREATE SCHEMA testp;
+CREATE SCHEMA testr;
 
-
--- TABLEWISE
-drop function if exists testp.ttdep;
 --  functional dependency
 create or replace function testp.ttdep() returns trigger as $$ begin raise notice 'im (table) triggered: % %', tg_event, tg_tag; end; $$ language plpgsql;
 create or replace function testr.ttdep() returns trigger as $$ begin raise notice 'im (table) triggered: % %', tg_event, tg_tag; end; $$ language plpgsql;
+
 --  results collation table
-drop table if exists res;
 create table res (idx float, ddl text);
 
 -----|| NO LEFT, RIGHT
 -- expecting CREATE from definition testr ONTO testp
 --   as "create index nlr_idx on testp.nlr using hash (a);"
-drop table if exists testp.nlr;
-drop table if exists testr.nlr;
+
 create table testp.nlr(a text);
 create table testr.nlr(a text);
-drop trigger if exists nlr_trig on testp.nlr;
-drop trigger if exists nlr_trig on testr.nlr;
+
 create trigger nlr_trig before update on testr.nlr for each row execute procedure testr.ttdep();  -- *expected output too
 insert into res
 select 1.0, 'nlr: create only' union
@@ -131,5 +131,9 @@ select 6.1, pgdeploy.reconcile_trigger(
 
 
 select * from res order by idx asc, ddl desc;
+
+-- CLEAN UP
+DROP EXTENSION pgdeploy CASCADE;
+ROLLBACK;
 
 -- TODO multiple triggers for one relation?
