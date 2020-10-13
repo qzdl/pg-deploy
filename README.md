@@ -1,4 +1,3 @@
-
 # Table of Contents
 
 1.  [`pgdeploy`](#org757db1b)
@@ -14,51 +13,58 @@
 
 # <a name="#org757db1b"></a> `pgdeploy`
 
-Postgres extension for maintaining database schemata using git.
+> A PostgreSQL extension for maintaining database schemata using git.
 
 Advantages:
 
--  Benefits of git
-    - Proper version control with rollback
-    - Deployment by commit, by tag or as your semantic versioning scheme requires
-    - Tests, deployment can be triggered by git hook etc
-    - Branches for different scenarios (archive, production system etc., where
-      minor changes may be present)
-    - git hooks
-    - history
-    - etc.
--   Single source of truth for all declarations and changes to schemata in a
-    repository
--   Using the database for generating the code for depoyment means syntax and reference check
-    for the schema
--   Own automated testing pipeline for the generated code, hooks and so on.
+- Benefits of git
+  - Proper version control with rollback
+  - Deployment by commit, by tag or as your semantic versioning scheme requires
+  - Tests, deployment can be triggered by git hook etc
+  - Branches for different scenarios (archive, production system etc., where
+    minor changes may be present)
+  - git hooks
+  - history
+  - etc.
+- Single source of truth for all declarations and changes to schemata in a
+  repository
+- Using the database for generating the code for depoyment means syntax and
+  reference check for the schema
+- Easy integration to your own automated testing pipeline for the generated
+  code, hooks, and so on.
 
 How it works - some theory:
 
-The definition of the database object describe the state of the database in
-regard its structure. This state is defined by a set of CREATE statements. A
-change in this definition results in a new state, that is also a set of create
-statements. We can establish the differences between the two states with the
-help of the PostgreSQL catalog tables and we can generate SQL code that can
-transform one state into an other. With other works: if we create a schema using
-the current state - new_schema - and using the previous state - old_schema - in
-a running database, then we can calculate the way of transforming one into the other.
-Then the main function of the extension does exactly this: it calculates the
-differences between the two schemata and generates a transforming SQL code.
-The code generation based on the differences between objects, regardless
-if that is a new commit or a rollback, only the direction of transformation must be defined:
+The definitions of database objects describe the **state** of the database, with
+regard its structure. This state can be expressed as a set of CREATE statements.
 
-For instance, if the new_schema has a new table then the table declaration must
-be calculated and applied to the old_schema. The other direction would be a DROP
-statement that removes the excess table.
+A change in this definition results in a new state, which is also a set of
+create statements. We can establish the differences between the two states with
+the help of the PostgreSQL catalog tables, and we can generate SQL code that can
+transform one state into an other. 
 
-To test the generated code simply apply the generated code to the original
-database schema and call the comparison function of the pgdeploy extension. The
-result should be a text without any sql commands: after applying the changes to
-the source state it should be transformed into the target state, so there should
-be no difference.
+In other words, if we create a schema using the current state - new_schema - and
+using the previous state - old_schema - in a running database, then we can
+calculate the way of transforming one state into the other. The main function of
+the extension - [`reconcile_schema.sql`](./src/reconcile_schema.sql) does
+exactly this; it calculates the differences between the set of objects in each
+schema. and generates the relevant transforming `SQL` code.
 
-After proving the generated code further commands can be added to it before
+The code generation is based on the differences between objects, regardless if
+that is a new commit or a rollback, only the direction of transformation must be
+given.
+
+For instance, if the *target* schema has a new table, then the `CREATE TABLE`
+declaration must be calculated for the *source* schema. If we were to reverse
+the direction, there would a DROP statement that removes the stale table.
+
+To test the generated code, simply apply the generated code to the original
+database schemam, then call the comparison function of the pgdeploy extension.
+The result should be 'empty' - a text without any SQL commands - after applying
+the changes to the source state, the object should be transformed into the
+target state; there should be no difference.
+
+After proving the generated code further, commands can be added to it before
 deployment - eg. rebuilding indices, vacuuming etc.
 
 
