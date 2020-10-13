@@ -35,63 +35,63 @@ Advantages:
 
 How it works - some theory:
 
-The definitions of database objects describe the **state** of the database, with
-regard its structure. This state can be expressed as a set of CREATE statements.
+The definitions of database objects describe the **state** of the database, with  
+regard its structure. This state can be expressed as a set of CREATE statements.  
 
-A change in this definition results in a new state, which is also a set of
-create statements. We can establish the differences between the two states with
-the help of the PostgreSQL catalog tables, and we can generate SQL code that can
+A change in this definition results in a new state, which is also a set of  
+create statements. We can establish the differences between the two states with  
+the help of the PostgreSQL catalog tables, and we can generate SQL code that can  
 transform one state into an other. 
 
-In other words, if we create a schema using the current state - new_schema - and
-using the previous state - old_schema - in a running database, then we can
-calculate the way of transforming one state into the other. The main function of
-the extension - [`reconcile_schema.sql`](./src/reconcile_schema.sql) does
-exactly this; it calculates the differences between the set of objects in each
-schema. and generates the relevant transforming `SQL` code.
+In other words, if we create a schema using the current state - new_schema - and  
+using the previous state - old_schema - in a running database, then we can  
+calculate the way of transforming one state into the other. The main function of  
+the extension - [`reconcile_schema.sql`](./src/reconcile_schema.sql) does exactly this; it  
+calculates the differences between the set of objects in each schema, and  
+generates the relevant transforming `SQL` code.
 
-The code generation is based on the differences between objects, regardless if
-that is a new commit or a rollback, only the direction of transformation must be
+The code generation is based on the differences between objects, regardless if  
+that is a new commit or a rollback, only the direction of transformation must be  
 given.
 
-For instance, if the *target* schema has a new table, then the `CREATE TABLE`
-declaration must be calculated for the *source* schema. If we were to reverse
+For instance, if the *target* schema has a new table, then the `CREATE TABLE`  
+declaration must be calculated for the *source* schema. If we were to reverse  
 the direction, there would a DROP statement that removes the stale table.
 
-To test the generated code, simply apply the generated code to the original
-database schemam, then call the comparison function of the pgdeploy extension.
-The result should be 'empty' - a text without any SQL commands - after applying
-the changes to the source state, the object should be transformed into the
+To test the generated code, simply apply the generated code to the original  
+database schemam, then call the comparison function of the pgdeploy extension.  
+The result should be 'empty' - a text without any SQL commands - after applying  
+the changes to the source state, the object should be transformed into the  
 target state; there should be no difference.
 
-After proving the generated code further, commands can be added to it before
+After proving the generated code further, commands can be added to it before  
 deployment - eg. rebuilding indices, vacuuming etc.
 
 
 Caveats
 
 - chain renaming is rollback boundary:
-    if object A is renamed as B, B is renamed as C and a new A is made in
-    subsequent changes, it is impossible to restore the initial state. If that
-    is a table, it is not possible to decide if it is a new table or a renamed
+    if object A is renamed as B, B is renamed as C and a new A is made in  
+    subsequent changes, it is impossible to restore the initial state. If that  
+    is a table, it is not possible to decide if it is a new table or a renamed  
     old one. With other words: RENAMEing objects is not encouraged.
 - runtime errors are not checked:
     Procedures/functions must have unit tests.
 - dyamically created tables shall not be part of the schema definition:
-    dynamically created tables are accidental for the particular database and
-    not consistent across databases. Such tables are table partitions or tables
-    with time stamps generated dynamically. Be aware if such tables are included
+    dynamically created tables are accidental for the particular database and  
+    not consistent across databases. Such tables are table partitions or tables  
+    with time stamps generated dynamically. Be aware if such tables are included  
     statically in your schema definition.
 
 
 ### <a name="#org82aaf99"></a> Extension Install
 
-Installation of the extension follows the standard Postgres extension install
+Installation of the extension follows the standard Postgres extension install  
 process.
 
 The server will not require a restart after install.
 
-The procedure relies on `gmake`, with tests through `installcheck` managed by
+The procedure relies on `gmake`, with tests through `installcheck` managed by  
 environment variables, as seen below.
 
 For a full list of environment variables relevant to PG, refer the official
