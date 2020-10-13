@@ -1,97 +1,105 @@
-# Table of Contents
-
-1.  [`pgdeploy`](#org757db1b)
-    1.  [Workflow](#org30bf2dc)
-        1.  [Extension Install](#org82aaf99)
-    2.  [Usage](#orga57ddd9)
-    3.  [Limitations](#Limitations)
-    4.  [For Developers](#forDevs)
-    5.  [Troubleshooting during installation](#org55c182b)
-    6.  [Todo](#todo)
-
-
-
-# <a name="#org757db1b"></a> `pgdeploy`
-
+# `pgdeploy`
 > A PostgreSQL extension for maintaining database schemata using git.
 
-Advantages:
+<!-- markdown-toc start - Don't edit this section. Run M-x markdown-toc-refresh-toc -->
+**Table of Contents**
+
+- [`pgdeploy`](#pgdeploy)
+    - [Advantages:](#advantages)
+    - [How it works](#how-it-works)
+    - [Caveats / Limitations](#caveats--limitations)
+    - [Installation](#installation)
+    - [Usage](#usage)
+        - [Preparation](#preparation)
+        - [First commit](#first-commit)
+        - [Further changes and rollbacks](#further-changes-and-rollbacks)
+    - [For Developers](#for-developers)
+        - [Testing](#testing)
+        - [Integration tests](#integration-tests)
+    - [Troubleshooting](#troubleshooting)
+        - [`installcheck`: `psql: FATAL:  role "root" does not exist`](#installcheck-psql-fatal--role-root-does-not-exist)
+        - [`installcheck`: `psql: FATAL:  Peer authentication failed for user "<USER>"`](#installcheck-psql-fatal--peer-authentication-failed-for-user-user)
+    - [TODO](#todo)
+
+<!-- markdown-toc end -->
+
+## Advantages:
 
 - Benefits of git
-  - Proper version control with rollback
-  - Deployment by commit, by tag or as your semantic versioning scheme requires
-  - Tests, deployment can be triggered by git hook etc
+  - Proper version control with rollback,
+  - Deployment by commit, by tag or as your semantic versioning scheme requires,
+  - Tests, deployment can be triggered by git hook etc,
   - Branches for different scenarios (archive, production system etc., where
-    minor changes may be present)
-  - git hooks
-  - history
+    minor changes may be present),
+  - git hooks,
+  - history,
   - etc.
 - Single source of truth for all declarations and changes to schemata in a
   repository
 - Using the database for generating the code for depoyment means syntax and
   reference check for the schema
-- Easy integration to your own automated testing pipeline for the generated
+- Easy integration to your own automated testing pipeline for the generated restore
   code, hooks, and so on.
 
-How it works - some theory:
+## How it works
 
-The definitions of database objects describe the **state** of the database, with  
-regard its structure. This state can be expressed as a set of CREATE statements.  
+The definitions of database objects describe the **state** of the database, with
+regard its structure. This state can be expressed as a set of CREATE statements.
 
-A change in this definition results in a new state, which is also a set of  
-create statements. We can establish the differences between the two states with  
-the help of the PostgreSQL catalog tables, and we can generate SQL code that can  
-transform one state into an other. 
+A change in this definition results in a new state, which is also a set of
+create statements. We can establish the differences between the two states with
+the help of the PostgreSQL catalog tables, and we can generate SQL code that can
+transform one state into an other.
 
-In other words, if we create a schema using the current state - new_schema - and  
-using the previous state - old_schema - in a running database, then we can  
-calculate the way of transforming one state into the other. The main function of  
-the extension - [`reconcile_schema.sql`](./src/reconcile_schema.sql) does exactly this; it  
-calculates the differences between the set of objects in each schema, and  
+In other words, if we create a schema using the current state - new_schema - and
+using the previous state - old_schema - in a running database, then we can
+calculate the way of transforming one state into the other. The main function of
+the extension - [`reconcile_schema.sql`](./src/reconcile_schema.sql) does exactly this; it
+calculates the differences between the set of objects in each schema, and
 generates the relevant transforming `SQL` code.
 
-The code generation is based on the differences between objects, regardless if  
-that is a new commit or a rollback, only the direction of transformation must be  
+The code generation is based on the differences between objects, regardless if
+that is a new commit or a rollback, only the direction of transformation must be
 given.
 
-For instance, if the *target* schema has a new table, then the `CREATE TABLE`  
-declaration must be calculated for the *source* schema. If we were to reverse  
+For instance, if the *target* schema has a new table, then the `CREATE TABLE`
+declaration must be calculated for the *source* schema. If we were to reverse
 the direction, there would a DROP statement that removes the stale table.
 
-To test the generated code, simply apply the generated code to the original  
-database schemam, then call the comparison function of the pgdeploy extension.  
-The result should be 'empty' - a text without any SQL commands - after applying  
-the changes to the source state, the object should be transformed into the  
+To test the generated code, simply apply the generated code to the original
+database schemam, then call the comparison function of the pgdeploy extension.
+The result should be 'empty' - a text without any SQL commands - after applying
+the changes to the source state, the object should be transformed into the
 target state; there should be no difference.
 
-After proving the generated code further, commands can be added to it before  
+After proving the generated code further, commands can be added to it before
 deployment - eg. rebuilding indices, vacuuming etc.
 
 
-Caveats
-
+## Caveats / Limitations
+- Base types are not supported
 - chain renaming is rollback boundary:
-    if object A is renamed as B, B is renamed as C and a new A is made in  
-    subsequent changes, it is impossible to restore the initial state. If that  
-    is a table, it is not possible to decide if it is a new table or a renamed  
+    if object A is renamed as B, B is renamed as C and a new A is made in
+    subsequent changes, it is impossible to restore the initial state. If that
+    is a table, it is not possible to decide if it is a new table or a renamed
     old one. With other words: RENAMEing objects is not encouraged.
 - runtime errors are not checked:
     Procedures/functions must have unit tests.
 - dyamically created tables shall not be part of the schema definition:
-    dynamically created tables are accidental for the particular database and  
-    not consistent across databases. Such tables are table partitions or tables  
-    with time stamps generated dynamically. Be aware if such tables are included  
+    dynamically created tables are accidental for the particular database and
+    not consistent across databases. Such tables are table partitions or tables
+    with time stamps generated dynamically. Be aware if such tables are included
     statically in your schema definition.
 
 
-### <a name="#org82aaf99"></a> Extension Install
+## Installation
 
-Installation of the extension follows the standard Postgres extension install  
+Installation of the extension follows the standard Postgres extension install
 process.
 
 The server will not require a restart after install.
 
-The procedure relies on `gmake`, with tests through `installcheck` managed by  
+The procedure relies on `gmake`, with tests through `installcheck` managed by
 environment variables, as seen below.
 
 For a full list of environment variables relevant to PG, refer the official
@@ -105,82 +113,75 @@ governed by the executing user.
     make install
     make installcheck -e PGPORT=YOUR_PG_PORT -e PGUSER=YOUR_PG_USER -e OTHERVAR=READ_THE_DOCS
 
-*usr/lib/postgresql/10/lib/pgxs/src/makefiles*../../src/test/regress/pg<sub>regress</sub> &#x2013;inputdir=./ &#x2013;bindir=&rsquo;/usr/lib/postgresql/10/bin&rsquo;    &#x2013;dbname=contrib<sub>regression</sub> deploy<sub>test</sub>
-(using postmaster on Unix socket, default port)
-`============` dropping database &ldquo;contrib<sub>regression</sub>&rdquo; `============`
-NOTICE:  database &ldquo;contrib<sub>regression</sub>&rdquo; does not exist, skipping
-DROP DATABASE
-`============` creating database &ldquo;contrib<sub>regression</sub>&rdquo; `============`
-CREATE DATABASE
-ALTER DATABASE
-`============` running regression test queries        `============`
-test deploy<sub>test</sub>              &#x2026; ok
-
-`===================`
- All 1 tests passed.
-`===================`
 
 
-## <a name="#orga57ddd9"></a> Usage
+## Usage
 
 ### Preparation
 
--   Prepare reference database. This database will be used to calculate the differences between the states        (commits) but shall not have any user schema defined. (Must be blank.)
--   Install the extension
--   Set the proper permissions, so that the user who connects to the database in the context of this extension
-    can create schema.
--   Create the extension for the database.
+- Prepare reference database. This database will be used to calculate the
+  differences between the states (commits) but shall not have any user schema
+  defined. (Must be blank)
+- Install the extension
+- Set the proper permissions, so that the user who connects to the database in
+  the context of this extension can create schema.
+- Create the extension for the database.
 
 ### First commit
-
--   Create a git repository for your object declarations (tables, procedures, ect.), that you want to keep in the version controll system.
--   Write the schema declaration or in case of a live system pg_dump the schema sql in to the repository so that you can restore it.
--   Modify the sql declaration according to your need and make the first commit.
+- Create a git repository for your object declarations (tables, procedures,
+  etc.), that you want to keep in the version control system.
+- Write the schema declaration or in case of a live system pg_dump the schema
+  sql in to the repository so that you can restore it.
+- Modify the sql declaration according to your need and make the first commit.
 
 ### Further changes and rollbacks
--   Make your changes. Any change in the object definitions are simply modifications of the definition. Any object deletion is a deletion in the schema file.
--   To prepare the reference database so, that your target state goes into one schema and the current goes into an other.
--   Call the extension's main function. If the reconciliation is successful, the return value is an SQL file that can be
-    used to create the state transition.
--   Test the code: as the source and target schema must exist on the reference database that is used by the extension,
-    modify the code so, that you can apply it to the source schema in the reference database. Call the reconcile
-    function to calculate the differences again. The result should be text without any SQL executable code in it.
--   Add your custom changes - eg. vacuum, index rebuild, statistics, etc. Deploy the code in your system.
+- Make your source code changes.
+  - Any change in the object definitions are simply modifications of the
+    definition. Any object deletion is a deletion in the schema file.
+- Load in the schemata
+  - To prepare the reference database so, that your target state goes into one
+    schema and the current goes into an other.
+- Call the extension's main function.
+  - If the reconciliation is successful, the return value is an SQL file that
+    can be used to create the state transition.
+- Test the code
+  - As the source and target schema must exist on the reference database that is
+    used by the extension, modify the code so, that you can apply it to the
+    source schema in the reference database. Call the reconcile function to
+    calculate the differences again. The result should be text without any SQL
+    executable code in it.
+- Add your custom changes
+  - eg. vacuum, index rebuild, statistics, etc. Deploy
+    the code in your system.
 
-Note: For an example check the integration_tests/transform.sh script.
+NOTE: For an example check the integration_tests/transform.sh script
 
 
-
-## <a name="#limitations"></a> Limitations
-- Base types are not supported
-
-## <a name="#forDevs"></a> For Developers
-
-### Testing - standard PostgreSQL test
-
+## For Developers
+### Testing
 The extension has standard PostgreSQL unit tests.
 
 ### Integration tests
-
 The integration tests simulate a real environment and the workflow.
 
--   The preparatory steps are as described in the Usage section for end users.
--   The two states used for development are the integration_tests/source.sql and integration_tests/target.sql files.
-    These files serve for testing and to be modified only when new test case or edge case is implemented.
--   The developer executes the helper script integration_tests/transform.sh in order to get his test results. For details see the transform.sh file.
+- The preparatory steps are as described in the Usage section for end users.
+- The two states used for development are the
+  [`integration_tests/source.sql`](./integration_tests/source.sql) and
+  [`integration_tests/target.sql`](./integration_tests/target.sql) files. These
+  files serve for testing and to be modified only when new test case or edge
+  case is implemented.
+- The developer executes the helper script integration_tests/transform.sh in
+  order to get his test results. For details see the transform.sh file.
 
 
-NOTE: If structural changes against the **current** version exist in the database,
-      it should be possible to write the version held by the extension to a new
-      schema that is not owned by the extension. From here, the process above
-      can be followed to get a new baseline.
+NOTE: If structural changes against the **current** version exist in the
+      database, it should be possible to write the version held by the extension
+      to a new schema that is not owned by the extension. From here, the process
+      above can be followed to get a new baseline.
 
 
-### <a name="#org55c182b"></a> Troubleshooting during installation
-
-
+## Troubleshooting
 ### `installcheck`: `psql: FATAL:  role "root" does not exist`
-
 By default, the user/role mapping will be used when attempting to establish a
 connection to the target database.
 
@@ -196,34 +197,34 @@ To fix, supply the `PGUSER` environment variable to `make` with the `-e` option:
 ### `installcheck`: `psql: FATAL:  Peer authentication failed for user "<USER>"`
 
 This error will likely arise when running `make installcheck` with supplying
-environment variable `PGUSER`.
-The fix for this depends on the authentication configuration of the target instance;
+environment variable `PGUSER`. The fix for this depends on the authentication
+configuration of the target instance:
 
--   ascertain how authentication is configured by finding `pg_hba.conf` &#x2013; this
-    can generally be found at `/etc/postgresql/<VERSION>/main/pg_hba.conf`;
-    replace `<VERSION>` with the applicable version
--   so, either:
-    -   change local login (first entry) from `peer` to `md5` or any other relevant
-        auth method;
-        -   `md5` allows for password auth from the user&rsquo;s UNIX login
-        -   `trust` will just allow any arbitrary local connections
-
-    -   check your environment variables to `make installlcheck`, and adjust the
-        parameters given to suit your auth config; e.g. `PGPASSWORD` as the
-        substitute for the connection parameter for `password`
--   if necessary, reload the server to apply the auth changes with the following
-    command
-
-        /etc/init.d/postgresql reload
--   in any case, [RTFM](https://www.postgresql.org/docs/current/libpq-envars.html)
+- ascertain how authentication is configured by finding `pg_hba.conf`; this
+  can generally be found at `/etc/postgresql/<VERSION>/main/pg_hba.conf`;
+  replace `<VERSION>` with the applicable version
+- so, either:
+  - change local login (first entry) from `peer` to `md5` or any other relevant
+    auth method:
+    - `md5` allows for password auth from the user&rsquo;s UNIX login
+    - `trust` will just allow any arbitrary local connections
+  - check your environment variables to `make installcheck`, and adjust the
+    parameters given to suit your auth config; e.g. `PGPASSWORD` as the
+    substitute for the connection parameter for `password`
+- if necessary, reload the server to apply the auth changes
+        /etc/init.d/postgresql reload # or however you trigger a restart
+- in any case, [RTFM for environment variables](https://www.postgresql.org/docs/current/libpq-envars.html)
 
 Some useful links for troubleshooting this process:
 
 -   [PostgreSQL: Documentation: 12: 20.3. Authentication Methods](https://www.postgresql.org/docs/12/auth-methods.html)
--   [postgresql - Getting error: Peer authentication failed for user &ldquo;postgres&rdquo;, w&#x2026;](https://stackoverflow.com/questions/18664074/getting-error-peer-authentication-failed-for-user-postgres-when-trying-to-ge)
+-   [postgresql - Getting error: Peer authentication failed for user 'postgres'](https://stackoverflow.com/questions/18664074/getting-error-peer-authentication-failed-for-user-postgres-when-trying-to-ge)
 
-# <a name="#todo"></a>TODO
 
+
+
+
+## TODO
 - when creating the source and target schema consider the case of fully qualified naming (schema.obj_name)
 - create the DEV/XXX_a.sql and DEV/XXX_b.sql and the DEV/YYY.sh for integration test
 - create the DEV/reconcile.sh as an example. (That may work on the current repository on the DEV/XXX_a.sql states? )
