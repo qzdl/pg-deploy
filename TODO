@@ -8,3 +8,11 @@
 # TESTS
 - event trigger test: test/sql/41_test-event_trigger.sql
 - aggregate function test: test/sql/60_test-function.sql
+
+
+# general
+dependency resolution tags
+- output & warn for warnings
+clarity of respecting pg user-facing stuff
+- e.g is_visisible in logged/unlogged, locked/unlocked
+- investigate how pg-deploy object views differ from ~\dt~
