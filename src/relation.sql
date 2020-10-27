@@ -6,7 +6,7 @@ BEGIN
     RETURN QUERY
     SELECT DISTINCT
         CASE WHEN t_schema IS NULL THEN
-          'DROP TABLE IF EXISTS '||s_schema||'.'||s_id
+          'DROP TABLE IF EXISTS '||s_schema||'.'||s_id||';'
              WHEN s_schema IS NULL THEN
           'CREATE TABLE '||source_schema||'.'||t_objname||'(LIKE '||t_schema||'.'||t_objname||' including all);'
              ELSE
