@@ -11,6 +11,8 @@
 # NOTE: un/qualified objects; references must exist in source for them to be valid in target
 # NOTE: consider pipeline as superset of reconsile_schema -> store result *somewhere*
 
+cd ~/git/pg-deploy/
+
 echo "
 ===============================================================================
 
@@ -26,7 +28,10 @@ echo "
 ===============================================================================
 
   VARS: $@
+  PWD : $(pwd)
+  TIME: $(date)
 "
+
 
 collect_schema() {
     # loop for  sql files that contain $1/pattern        in this dir/$2
@@ -38,8 +43,9 @@ collect_schema() {
     [ -z $4 ] && cat $3 | sed "s/$1\./$4\./g" > $3
 }
 
+
 SEARCH_DIR='./test/schema/'
-SOURCE_SCHEMA='testr'
+SOURCE_SCHEMA='staying_alive'
 TARGET_SCHEMA='testp'
 TARGET_OUTPUT=/tmp/pgdeploy-target-sql && rm -rf $TARGET_OUTPUT
 SOURCE_OUTPUT=/tmp/pgdeploy-source-sql && rm -rf $SOURCE_OUTPUT
@@ -47,15 +53,17 @@ SOURCE_OUTPUT=/tmp/pgdeploy-source-sql && rm -rf $SOURCE_OUTPUT
 
 # CHECK INSTALLED:
 #   TODO check this works
-psql -c "select 1 from pg_extension where extname = 'pgdeploy'" \
-    | grep '0 rows' &>/dev/null && echo "ERROR: pgdeploy must be installed!!!" && exit 1
+# psql -c "select 1 from pg_extension where extname = 'pgdeploy'" \
+#     | grep '0 rows' &>/dev/null && echo "ERROR: pgdeploy must be installed!!!" && exit 1
 
 # CREATE TESTDB:
 TESTDB='pgd_test'
 sql="psql -d $TESTDB"
-psql -c "CREATE DATABASE IF NOT EXISTS $TESTDB" \
-    || echo "ERROR: cannot create database" && exit 1
+psql -c "DROP DATABASE $TESTDB" | grep -i error && echo "ERROR: Failure dropping $TESTDB" && exit 1
+psql -c "CREATE DATABASE $TESTDB" | grep -i error && echo "ERROR: Failure creating $TESTDB" && exit 1
 
+# CREATE PGDEPLOY FOR `TESTDB':
+$sql -c 'create extension pgdeploy' | grep -i error && echo "ERROR: Failure creating extension" && exit 1
 
 # GET TARGET STATE:
 collect_schema $SOURCE_SCHEMA "$SEARCH_DIR/old/" $TARGET_OUTPUT
@@ -63,9 +71,8 @@ collect_schema $SOURCE_SCHEMA "$SEARCH_DIR/old/" $TARGET_OUTPUT
 # LOAD TARGET STATE:
 $sql -f $TARGET_OUTPUT
 
-
 # RENAME TARGET DEFS TO `TARGET_SCHEMA':
-$sql -c "rename schema $SOURCE_SCHEMA $TARGET_SCHEMA"
+$sql -c "alter schema rename $SOURCE_SCHEMA $TARGET_SCHEMA"
 
 
 # GET SOURCE STATE:
@@ -76,4 +83,4 @@ $sql -f $SOURCE_OUTPUT
 
 
 # RECONSILE:
-$sql -c "select * from pgdeploy.reconsile_schema($SOURCE_SCHEMA, $TARGET_SCHEMA)"
+$sql -c "select * from pgdeploy.reconsile_schema('$SOURCE_SCHEMA', '$TARGET_SCHEMA')"
