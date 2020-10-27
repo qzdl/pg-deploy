@@ -35,12 +35,12 @@ echo "
 
 collect_schema() {
     # loop for  sql files that contain $1/pattern        in this dir/$2
-    # (awk)    get the filepath      collect f contents in $3/OUTPUT
+    # (awk)    get the filepath      burp f contents to stdout
     for f in $(grep -R "$1\." -c --include=*.sql $2 \
-        | awk -F '[,:]' '{print $1}'); do cat $f >> $3; done
+        | awk -F '[,:]' '{print $1}'); do echo "-- $f" && cat $f; done
 
     # rename inplace for live runs, loading only target/$4 definitions
-    [ -z $4 ] && cat $3 | sed "s/$1\./$4\./g" > $3
+    # [ -z $4 ] && cat $3 | sed "s/$1\./$4\./g" > $3
 }
 
 
@@ -66,21 +66,52 @@ psql -c "CREATE DATABASE $TESTDB" | grep -i error && echo "ERROR: Failure creati
 $sql -c 'create extension pgdeploy' | grep -i error && echo "ERROR: Failure creating extension" && exit 1
 
 # GET TARGET STATE:
-collect_schema $SOURCE_SCHEMA "$SEARCH_DIR/old/" $TARGET_OUTPUT
+collect_schema $SOURCE_SCHEMA "$SEARCH_DIR/new/" > $TARGET_OUTPUT
 
 # LOAD TARGET STATE:
 $sql -f $TARGET_OUTPUT
 
 # RENAME TARGET DEFS TO `TARGET_SCHEMA':
-$sql -c "alter schema rename $SOURCE_SCHEMA $TARGET_SCHEMA"
+$sql -c "alter schema $SOURCE_SCHEMA rename to $TARGET_SCHEMA"
 
 
 # GET SOURCE STATE:
-collect_schema $SOURCE_SCHEMA "$SEARCH_DIR/new/" $SOURCE_OUTPUT
+collect_schema $SOURCE_SCHEMA "$SEARCH_DIR/old/" > $SOURCE_OUTPUT
 
 # LOAD SOURCE STATE:
 $sql -f $SOURCE_OUTPUT
 
 
 # RECONSILE:
-$sql -c "select * from pgdeploy.reconsile_schema('$SOURCE_SCHEMA', '$TARGET_SCHEMA')"
+$sql -t -c "select ddl from pgdeploy.reconcile_schema('$SOURCE_SCHEMA'::name, '$TARGET_SCHEMA'::name)" \
+     -o run-me.sql
+
+echo  "
+
+======
+DEBUG:
+======
+
+TESTDB:        $TESTDB
+SQL CMD:       $sql
+
+SOURCE_SCHEMA: $SOURCE_SCHEMA
+TARGET_SCHEMA: $TARGET_SCHEMA
+
+SOURCE_OUTPUT: $SOURCE_OUTPUT ->
+
+$(cat $SOURCE_OUTPUT)
+
+<-
+
+TARGET_OUTPUT: $TARGET_OUTPUT ->
+
+$(cat $TARGET_OUTPUT)
+
+<-
+
+OUTPUT SCRIPT: ./run-me.sql ->
+
+$(cat ./run-me.sql)
+
+<-"
