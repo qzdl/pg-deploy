@@ -118,22 +118,22 @@ governed by the executing user.
 ## Usage
 
 ### Preparation
-
 - Prepare reference database. This database will be used to calculate the
   differences between the states (commits) but shall not have any user schema
   defined. (Must be blank)
 - Install the extension
 - Set the proper permissions, so that the user who connects to the database in
   the context of this extension can create schema.
-- Create the extension for the database.
+- Create the extension for the database `CREATE EXTENSION pgdeploy;`
 
-### First commit
+### (with git) First commit
 - Create a git repository for your object declarations (tables, procedures,
   etc.), that you want to keep in the version control system.
-- Write the schema declaration or in case of a live system pg_dump the schema
-  sql in to the repository so that you can restore it.
-- Modify the sql declaration according to your need and make the first commit.
-
+- Write the schema declaration, or in case of a live/development system,
+  `pg_dump` the schema sql in to the repository so that you can restore it.
+- Modify the sql declaration according to your needs and make the inital repo
+  commit.
+  
 ### Further changes and rollbacks
 - Make your source code changes.
   - Any change in the object definitions are simply modifications of the
@@ -151,8 +151,7 @@ governed by the executing user.
     calculate the differences again. The result should be text without any SQL
     executable code in it.
 - Add your custom changes
-  - eg. vacuum, index rebuild, statistics, etc. Deploy
-    the code in your system.
+  - eg. vacuum, index rebuild, statistics, etc. Deploy the code in your system.
 
 NOTE: For an example check the integration_tests/transform.sh script
 
@@ -223,6 +222,15 @@ Some useful links for troubleshooting this process:
 
 
 
+
+### `installcheck`: tests failing
+- Check `test/expected/`; this directory contains a set of output files that
+yield a pass/fail, when `diff`ed with the output of the set of `test/sql/`
+  - if this directory is blank, check the root of the repo for a directory
+    `results` (the output of `installcheck`), and copy to `expected`:
+        
+        cp -a ./results/* ./test/expected/
+        
 
 ## TODO
 - when creating the source and target schema consider the case of fully qualified naming (schema.obj_name)
