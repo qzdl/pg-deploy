@@ -33,7 +33,7 @@ This program comes with ABSOLUTELY NO WARRANTY.
 This is free software, and you are welcome to redistribute it under certain
 conditions.
 
-See `https://gnu.org/licenses` for information on how to make and keep software
+See 'https://gnu.org/licenses' for information on how to make and keep software
 free.
 
 ===============================================================================
@@ -50,5 +50,6 @@ free.
 ===============================================================================
 
   PWD : $(pwd)
-  TIME: $(date)"
+  TIME: $(date)
+"
 }

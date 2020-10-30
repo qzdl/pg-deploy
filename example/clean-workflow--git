@@ -23,7 +23,7 @@
 # You should have received a copy of the GNU General Public License
 # along with pgdeploy.  If not, see <http://www.gnu.org/licenses/>.
 
-
+# <exec-shell-cmd "~/git/pg-deploy/example/clean-workflow--git">
 # WORKFLOW:
 #  create new db
 #  load target state object definitions
@@ -41,47 +41,62 @@ SEARCH_DIR=$SRC_DIR/test/schema/new/
 CURRENT_SHA=$(git rev-parse HEAD)
 SOURCE_SCHEMA=staying_alive
 SOURCE_OUTPUT=/tmp/pgdeploy-source-sql && rm -rf $SOURCE_OUTPUT
-SOURCE_SHA='8439febbb1f30b7535336cc03e239a1b120bac9e'
+SOURCE_TAG=0.1
 
 TARGET_SCHEMA=testp
 TARGET_OUTPUT=/tmp/pgdeploy-target-sql && rm -rf $TARGET_OUTPUT
-TARGET_SHA='54261f6396fccaac4c2bac51b8def0b277857dd5'
-
-
-cd $SRC_DIR
+TARGET_TAG=1.2
 
 # LOAD UTILS
 source $SRC_DIR/example/collect_schema
 source $SRC_DIR/example/splash && splash
 
+echo "...In '`pwd`', checking out 'master'"
+cd $SEARCH_DIR && git checkout master
+
 # CREATE TESTDB:
 TESTDB='pgd_test'
 sql="psql -d $TESTDB"
+echo "...Creating clean database '$TESTDB'"
 psql -c "DROP DATABASE $TESTDB" | grep -i error && echo "ERROR: Failure dropping $TESTDB" && exit 1
 psql -c "CREATE DATABASE $TESTDB" | grep -i error && echo "ERROR: Failure creating $TESTDB" && exit 1
 
 # CREATE PGDEPLOY FOR `TESTDB':
+echo "...Creating extension 'pgdeploy' in '$TESTDB'"
 $sql -c 'create extension pgdeploy' | grep -i error && echo "ERROR: Failure creating extension on $TESTDB" && exit 1
 
-# GET/LOAD TARGET STATE:
-git checkout $TARGET_SHA || echo "ERROR: Cannot change git ref
-$@" && exit 1
 
+# GET/LOAD TARGET STATE:
+echo "...Checking out state '$TARGET_TAG'"
+git checkout $TARGET_TAG --detach
+echo "...Collecting schema '$SOURCE_SCHEMA':
+..... from '$SEARCH_DIR'
+..... to '$TARGET_OUTPUT'"
 collect_schema $SOURCE_SCHEMA $SEARCH_DIR > $TARGET_OUTPUT
+echo "...Loading '$TARGET_OUTPUT' to '$TESTDB'"
 $sql -f $TARGET_OUTPUT -q
 
 # RENAME TARGET DEFS TO `TARGET_SCHEMA':
+echo "...Renaming loaded state '$TARGET_TAG' to '$TARGET_SCHEMA'"
 $sql -c "alter schema $SOURCE_SCHEMA rename to $TARGET_SCHEMA" -q
 
 # GET/LOAD SOURCE STATE:
-git checkout $SOURCE_SHA
+echo "...Checking out state '$SOURCE_TAG'"
+git checkout $SOURCE_TAG --detach
+echo "...Collecting schema '$SOURCE_SCHEMA':
+..... from '$SEARCH_DIR'
+..... to '$SOURCE_OUTPUT'"
 collect_schema $SOURCE_SCHEMA $SEARCH_DIR > $SOURCE_OUTPUT
+echo "...Loading '$SOURCE_OUTPUT' to '$TESTDB'"
 $sql -f $SOURCE_OUTPUT -q
 
 # RECONSILE to `run-me.sql':
+echo "...Generating state transition SQL between '$SOURCE_TAG' and '$TARGET_TAG' to '$SRC_DIR/run-me.sql'"
 reconcile="select ddl from pgdeploy.reconcile_schema('$SOURCE_SCHEMA'::name, '$TARGET_SCHEMA'::name)"
-$sql -t -q -c  "$reconcile" -o run-me.sql
+$sql -t -q -c  "$reconcile" -o $SRC_DIR/run-me.sql
 
+
+# DEBUG OUTPUT
 echo  "
 
 ======
@@ -110,6 +125,6 @@ $(cat $TARGET_OUTPUT)
 
 OUTPUT SCRIPT: ./run-me.sql --->
 
-$(cat ./run-me.sql)
+$(cat $SRC_DIR/run-me.sql)
 
 <---"
