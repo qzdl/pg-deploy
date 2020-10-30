@@ -116,15 +116,15 @@ select 6.1, pgdeploy.reconcile_trigger(
     'testr'::name,
     (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testr' where relname = 'nlrnrl'));
 select * from res order by idx asc, ddl desc;
- idx |                                                 ddl                                                  
------+------------------------------------------------------------------------------------------------------
+ idx |                                                  ddl                                                  
+-----+-------------------------------------------------------------------------------------------------------
    1 | nlr: create only
- 1.1 | CREATE TRIGGER nlr_trig BEFORE UPDATE ON testp.nlr FOR EACH ROW EXECUTE FUNCTION testp.ttdep()
+ 1.1 | CREATE TRIGGER nlr_trig BEFORE UPDATE ON testp.nlr FOR EACH ROW EXECUTE PROCEDURE testp.ttdep()
    2 | lnr: drop only
  2.1 | DROP TRIGGER IF EXISTS lnr_trig ON testp.lnr;
    3 | lrd: drop create
  3.1 | DROP TRIGGER IF EXISTS lrm_trig ON testp.lrm;
- 3.1 | CREATE TRIGGER lrm_trig AFTER UPDATE ON testp.lrm FOR EACH ROW EXECUTE FUNCTION testp.ttdep()
+ 3.1 | CREATE TRIGGER lrm_trig AFTER UPDATE ON testp.lrm FOR EACH ROW EXECUTE PROCEDURE testp.ttdep()
    4 | lrnd: pass
  4.1 | -- TRIGGER: LEFT and RIGHT of 'lrnm_trig' on 'lrnm' are equal
    5 | lrnm2: pass (2 triggers)
@@ -132,7 +132,7 @@ select * from res order by idx asc, ddl desc;
  5.1 | -- TRIGGER: LEFT and RIGHT of 'lrnmii_trig' on 'lrnm2' are equal
    6 | nlrnrl: drop ii, create i, (2 triggers)
  6.1 | DROP TRIGGER IF EXISTS nlrnlii_trig ON testp.nlrnrl;
- 6.1 | CREATE TRIGGER nlrnli_trig BEFORE UPDATE ON testp.nlrnrl FOR EACH ROW EXECUTE FUNCTION testp.ttdep()
+ 6.1 | CREATE TRIGGER nlrnli_trig BEFORE UPDATE ON testp.nlrnrl FOR EACH ROW EXECUTE PROCEDURE testp.ttdep()
 (15 rows)
 
 -- CLEAN UP

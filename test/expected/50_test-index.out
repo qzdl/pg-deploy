@@ -97,9 +97,11 @@ INSERT into res
 select 4.0, 'lrnd: pass' union
 select 4.1, pgdeploy.reconcile_index(
     'testp'::name,
-    (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testp' where relname = 'lrnm'),
+    (select c.oid from pg_class c
+      inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testp' where relname = 'lrnm'),
     'testr'::name,
-    (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testr' where relname = 'lrnm'));
+    (select c.oid from pg_class c
+      inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testr' where relname = 'lrnm'));
 select * from res order by idx asc, ddl desc;
  idx |                       ddl                        
 -----+--------------------------------------------------
