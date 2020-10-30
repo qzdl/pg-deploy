@@ -32,7 +32,7 @@
 
 <!-- markdown-toc end -->
 
-## Advantages:
+## Advantages
 
 - Benefits of git
   - Proper version control with rollback,

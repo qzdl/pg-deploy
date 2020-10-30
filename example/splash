@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+#
+## pgdeploy :: The PostgreSQL generative object transformer
+#
+# Copyright (C) 2020  Samuel Culpepper
+#
+# Author: Samuel Culpepper <code at samuelculpepper.com>
+# Maintainer: Samuel Culpepper <code at samuelculpepper.com>
+# Developed at thinkproject Berlin, 2020
+#
+# This file is part of pgdeploy
+#
+# pgdeploy is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# pgdeploy is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with pgdeploy.  If not, see <http://www.gnu.org/licenses/>.
+
+splash() {
+  echo "
+pgdeploy :: The PostgreSQL generative object transformer
+(GPLv3+) Copyright (C) 2020  Samuel Culpepper
+
+This program comes with ABSOLUTELY NO WARRANTY.
+
+This is free software, and you are welcome to redistribute it under certain
+conditions.
+
+See `https://gnu.org/licenses` for information on how to make and keep software
+free.
+
+===============================================================================
+
+ ███████    ████████  ███████   ████████ ███████  ██         ███████   ██    ██
+░██░░░░██  ██░░░░░░██░██░░░░██ ░██░░░░░ ░██░░░░██░██        ██░░░░░██ ░░██  ██
+░██   ░██ ██      ░░ ░██    ░██░██      ░██   ░██░██       ██     ░░██ ░░████
+░███████ ░██         ░██    ░██░███████ ░███████ ░██      ░██      ░██  ░░██
+░██░░░░  ░██    █████░██    ░██░██░░░░  ░██░░░░  ░██      ░██      ░██   ░██
+░██      ░░██  ░░░░██░██    ██ ░██      ░██      ░██      ░░██     ██    ░██
+░██       ░░████████ ░███████  ░████████░██      ░████████ ░░███████     ░██
+░░         ░░░░░░░░  ░░░░░░░   ░░░░░░░░ ░░       ░░░░░░░░   ░░░░░░░      ░░
+
+===============================================================================
+
+  PWD : $(pwd)
+  TIME: $(date)"
+}

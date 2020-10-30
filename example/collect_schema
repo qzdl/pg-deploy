@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+#
+## pgdeploy :: The PostgreSQL generative object transformer
+#
+# Copyright (C) 2020  Samuel Culpepper
+#
+# Author: Samuel Culpepper <code at samuelculpepper.com>
+# Maintainer: Samuel Culpepper <code at samuelculpepper.com>
+# Developed at thinkproject Berlin, 2020
+#
+# This file is part of pgdeploy
+#
+# pgdeploy is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# pgdeploy is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with pgdeploy.  If not, see <http://www.gnu.org/licenses/>.
+
+collect_schema() {
+    # Concatenate the sql files that are needed for the reconciliation.
+    # loop for  sql files that contain $1/pattern        in this dir/$2
+    # (awk)    get the filepath      burp f contents to stdout
+    for f in $(grep -R "$1\." -c --include=*.sql $2 \
+        | awk -F '[,:]' '{print $1}'); do echo "-- $f" && cat $f; done
+
+    # rename inplace for live runs, loading only target/$4 definitions
+    # [ -z $4 ] && cat $3 | sed "s/$1\./$4\./g" > $3
+}

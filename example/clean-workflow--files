@@ -1,0 +1,102 @@
+#!/usr/bin/env bash
+#
+## pgdeploy :: The PostgreSQL generative object transformer
+#
+# Copyright (C) 2020  Samuel Culpepper
+#
+# Author: Samuel Culpepper <code at samuelculpepper.com>
+# Maintainer: Samuel Culpepper <code at samuelculpepper.com>
+# Developed at thinkproject Berlin, 2020
+#
+# This file is part of pgdeploy
+#
+# pgdeploy is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# pgdeploy is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with pgdeploy.  If not, see <http://www.gnu.org/licenses/>.
+
+
+# WORKFLOW:
+#  create new db
+#  load target state object definitions
+#  rename target schema to TARGET
+#  load source state object definitions
+#  run reconsile_schema for SOURCE and TARGET
+
+# NOTE: un/qualified objects; references must exist in source for them to be valid in target
+# NOTE: consider pipeline as superset of reconsile_schema -> store result *somewhere*
+
+# VARS
+SRC_DIR=~/git/pg-deploy/
+SEARCH_DIR=$SRC_DIR/test/schema/
+SOURCE_SCHEMA=staying_alive
+TARGET_SCHEMA=testp
+TARGET_OUTPUT=/tmp/pgdeploy-target-sql && rm -rf $TARGET_OUTPUT
+SOURCE_OUTPUT=/tmp/pgdeploy-source-sql && rm -rf $SOURCE_OUTPUT
+
+# LOAD UTILS
+source $SRC_DIR/example/collect_schema
+source $SRC_DIR/example/splash && splash
+
+# CREATE TESTDB:
+TESTDB='pgd_test'
+sql="psql -d $TESTDB"
+psql -c "DROP DATABASE $TESTDB" | grep -i error && echo "ERROR: Failure dropping $TESTDB" && exit 1
+psql -c "CREATE DATABASE $TESTDB" | grep -i error && echo "ERROR: Failure creating $TESTDB" && exit 1
+
+# CREATE PGDEPLOY FOR `TESTDB':
+$sql -c 'create extension pgdeploy' | grep -i error && echo "ERROR: Failure creating extension on $TESTDB" && exit 1
+
+# GET/LOAD TARGET STATE:
+collect_schema $SOURCE_SCHEMA "$SEARCH_DIR/new/" > $TARGET_OUTPUT
+$sql -f $TARGET_OUTPUT -q
+
+# RENAME TARGET DEFS TO `TARGET_SCHEMA':
+$sql -c "alter schema $SOURCE_SCHEMA rename to $TARGET_SCHEMA" -q
+
+# GET/LOAD SOURCE STATE:
+collect_schema $SOURCE_SCHEMA "$SEARCH_DIR/old/" > $SOURCE_OUTPUT
+$sql -f $SOURCE_OUTPUT -q
+
+
+# RECONSILE to `run-me.sql':
+reconcile="select ddl from pgdeploy.reconcile_schema('$SOURCE_SCHEMA'::name, '$TARGET_SCHEMA'::name)"
+$sql -t -q -c  "$reconcile" -o run-me.sql
+
+echo  "
+
+======
+DEBUG:
+======
+
+TESTDB:        $TESTDB
+SQL CMD:       $sql
+
+SOURCE_SCHEMA: $SOURCE_SCHEMA
+TARGET_SCHEMA: $TARGET_SCHEMA
+
+SOURCE_OUTPUT: $SOURCE_OUTPUT --->
+
+$(cat $SOURCE_OUTPUT)
+
+<---
+
+TARGET_OUTPUT: $TARGET_OUTPUT --->
+
+$(cat $TARGET_OUTPUT)
+
+<---
+
+OUTPUT SCRIPT: ./run-me.sql --->
+
+$(cat ./run-me.sql)
+
+<---"
