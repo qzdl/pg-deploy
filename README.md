@@ -7,7 +7,7 @@
 **Table of Contents**
 
 - [`pgdeploy`](#pgdeploy)
-    - [Advantages:](#advantages)
+    - [Advantages](#advantages)
     - [How it works](#how-it-works)
     - [Caveats / Limitations](#caveats--limitations)
     - [Installation](#installation)
@@ -25,7 +25,7 @@
         - [`installcheck`: `psql: FATAL:  role "root" does not exist`](#installcheck-psql-fatal--role-root-does-not-exist)
         - [`installcheck`: `psql: FATAL:  Peer authentication failed for user "<USER>"`](#installcheck-psql-fatal--peer-authentication-failed-for-user-user)
         - [`installcheck`: tests failing](#installcheck-tests-failing)
-    - [TODO](#todo)
+    - [[TODO](./TODO)](#todotodo)
     - [LICENSE](#license)
         - [file header licence info](#file-header-licence-info)
         - [CLI license info](#cli-license-info)
@@ -272,10 +272,8 @@ yield a pass/fail, when `diff`ed with the output of the set of `test/sql/`
         cp -a ./results/* ./test/expected/
         
 
-## TODO
-- when creating the source and target schema consider the case of fully qualified naming (schema.obj_name)
-- create the DEV/XXX_a.sql and DEV/XXX_b.sql and the DEV/YYY.sh for integration test
-- create the DEV/reconcile.sh as an example. (That may work on the current repository on the DEV/XXX_a.sql states? )
+## [TODO](./TODO)
+See file [TODO](./TODO)
 
 ## LICENSE
                     GNU GENERAL PUBLIC LICENSE

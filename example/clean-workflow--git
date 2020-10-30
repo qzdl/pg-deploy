@@ -91,7 +91,9 @@ echo "...Loading '$SOURCE_OUTPUT' to '$TESTDB'"
 $sql -f $SOURCE_OUTPUT -q
 
 # RECONSILE to `run-me.sql':
-echo "...Generating state transition SQL between '$SOURCE_TAG' and '$TARGET_TAG' to '$SRC_DIR/run-me.sql'"
+echo "...Generating state transition SQL:
+..... between '$SOURCE_TAG' and  '$TARGET_TAG'
+..... to '$SRC_DIR/run-me.sql'"
 reconcile="select ddl from pgdeploy.reconcile_schema('$SOURCE_SCHEMA'::name, '$TARGET_SCHEMA'::name)"
 $sql -t -q -c  "$reconcile" -o $SRC_DIR/run-me.sql
 

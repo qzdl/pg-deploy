@@ -1,18 +1,29 @@
-# general
-- git hooks
-
 # pg objects
-- views
-- sequences
+TODO views
+TODO sequences
+TODO filtering of 'no change for object x' in reconcile schema
+TODO enable better output messages & format for comfortable reviewing
+
+# DEMO
+DONE demo filesystem clean state
+DONE demo git clean state
+TODO demo filesystem dirty state
+TODO demo git dirty state
+TODO git hooks
+TODO basic cli for dirty state
 
 # TESTS
-- event trigger test: test/sql/41_test-event_trigger.sql
-- aggregate function test: test/sql/60_test-function.sql
-
+TODO event trigger test: test/sql/41_test-event_trigger.sql
+TODO aggregate function test: test/sql/60_test-function.sql
 
 # general
-dependency resolution tags
+TODO dependency resolution tags
 - output & warn for warnings
-clarity of respecting pg user-facing stuff
+TODO clarity of respecting pg user-facing stuff
 - e.g is_visisible in logged/unlogged, locked/unlocked
 - investigate how pg-deploy object views differ from ~\dt~
+TODO look at ripping object definitions from dirty DB
+TODO Find 'n' RAISE NOTICE output
+TODO Revise the notice output & relevant documentation for
+     loglevel suppression (maxclientmessages : psql)
+TODO Update license info with pg license

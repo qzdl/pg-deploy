@@ -40,7 +40,7 @@ BEGIN
         ' ADD COLUMN '||array_to_string(ARRAY[t_objname, column_type,
         column_default_value, column_not_null],' ')||';'
 
-      ELSE '-- COLUMN: no change for '||s_objname END AS ddl
+      ELSE '-- @NOCHANGE | COLUMN: no change for attribute '||s_objname END AS ddl
     FROM info;
 END;
 $BODY$
