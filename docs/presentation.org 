@@ -1,0 +1,579 @@
+* PGDEPLOY
+#+COMMENT: { C-c C-e C-s R R }
+#+OPTIONS: num:nil toc:nil
+#+REVEAL_THEME: night
+#+REVEAL_TRANS: Slide
+#+REVEAL_ROOT: https://cdn.jsdelivr.net/npm/reveal.js
+#+REVEAL_HLEVEL: 1
+#+REVEAL_EXTRA_CSS: /home/qzdl/life/talks/reveal-defaults.css
+
+** Overview
+- the problem statement
+- how to know what Postgres knows
+- working with Postgres internals
+- implementing diff
+- using pgdeploy
+- inspiration and thanks
+
+** What is pgdeploy?
+- a Postgres extension
+- a sql code generator
+- command line interface
+- for migrations
+- for testing
+- flotsam detector
+
+#+begin_comment
+all of these things
+
+in explaining the transition model, you will hear 'from source', 'to target'
+
+addressing the core, there are a set of functions that for any two arbitrary
+objects of the same type, (tables, functions), the applicable function will
+generate the transition from a given 'source' and 'target' as prescribed by
+argument order.
+
+the output of this function will be the sql command(s) to perform this transformation.
+#+end_comment
+** The problem statement
+- changesets are unwieldy
+- enable reasoning about states definition
+- minimise dependencies
+- repeatability matters
+
+** How? =pg_dump=
+
+=pg_dump= is the reference point for SQL object generation
+- rip objects out as a set of =CREATE= statements
+- then =pg_restore= somewhere else
+
+great for ultimatums
+- clean databases
+- backups
+
+but no workflow to model changes in objects
+
+#+begin_comment
+We can see the programmatic generation of object definitions through the
+postgres utility =pg_dump=
+
+this was the starting point for the conception of object definition generation
+in the context of this program
+
+looking at the vast array of changesets that exist in the TPCDE repo cs_code,
+managing changes, it seemed feasible to produce some utility that can restate
+the problem in a declarative fashion
+
+and so came the spark to use this information for evil
+#+end_comment
+
+** How? =pg_catalog=
+=pg_catalog= knows more than we do
+
+
+#+begin_src sql
+select table_schema, table_name from information_schema.tables
+where table_schema = 'pg_catalog'
+#+end_src
+
+#+begin_src
+ table_schema │           table_name
+──────────────┼─────────────────────────────────
+ pg_catalog   │ pg_statistic
+ pg_catalog   │ pg_type
+ pg_catalog   │ pg_policy
+ pg_catalog   │ pg_authid
+ pg_catalog   │ pg_shadow
+ pg_catalog   │ pg_settings
+ pg_catalog   │ pg_hba_file_rules
+ pg_catalog   │ pg_file_settings
+ pg_catalog   │ pg_config
+ pg_catalog   │ pg_user_mapping
+ pg_catalog   │ pg_replication_origin_status
+ pg_catalog   │ pg_subscription
+ pg_catalog   │ pg_stat_user_tables
+ pg_catalog   │ pg_stat_xact_user_tables
+ pg_catalog   │ pg_attribute
+ pg_catalog   │ pg_proc
+ pg_catalog   │ pg_class
+ pg_catalog   │ pg_attrdef
+ pg_catalog   │ pg_constraint
+ pg_catalog   │ pg_statio_all_tables
+ pg_catalog   │ pg_statio_sys_tables
+ pg_catalog   │ pg_statio_user_tables
+ pg_catalog   │ pg_stat_all_indexes
+ pg_catalog   │ pg_inherits
+ pg_catalog   │ pg_index
+ pg_catalog   │ pg_operator
+ pg_catalog   │ pg_opfamily
+ pg_catalog   │ pg_opclass
+ pg_catalog   │ pg_am
+ pg_catalog   │ pg_amop
+ pg_catalog   │ pg_amproc
+ pg_catalog   │ pg_language
+ pg_catalog   │ pg_largeobject_metadata
+ pg_catalog   │ pg_aggregate
+ pg_catalog   │ pg_statistic_ext
+ pg_catalog   │ pg_rewrite
+ pg_catalog   │ pg_trigger
+ pg_catalog   │ pg_event_trigger
+ pg_catalog   │ pg_description
+ pg_catalog   │ pg_cast
+ pg_catalog   │ pg_enum
+ pg_catalog   │ pg_namespace
+ pg_catalog   │ pg_conversion
+ pg_catalog   │ pg_depend
+ pg_catalog   │ pg_database
+ pg_catalog   │ pg_db_role_setting
+ pg_catalog   │ pg_tablespace
+ pg_catalog   │ pg_pltemplate
+ pg_catalog   │ pg_auth_members
+ pg_catalog   │ pg_shdepend
+ pg_catalog   │ pg_shdescription
+ pg_catalog   │ pg_ts_config
+ pg_catalog   │ pg_ts_config_map
+ pg_catalog   │ pg_ts_dict
+ pg_catalog   │ pg_ts_parser
+ pg_catalog   │ pg_ts_template
+ pg_catalog   │ pg_extension
+ pg_catalog   │ pg_foreign_data_wrapper
+ pg_catalog   │ pg_foreign_server
+ pg_catalog   │ pg_foreign_table
+ pg_catalog   │ pg_replication_origin
+ pg_catalog   │ pg_default_acl
+ pg_catalog   │ pg_init_privs
+ pg_catalog   │ pg_seclabel
+ pg_catalog   │ pg_shseclabel
+ pg_catalog   │ pg_collation
+ pg_catalog   │ pg_partitioned_table
+ pg_catalog   │ pg_range
+ pg_catalog   │ pg_transform
+ pg_catalog   │ pg_sequence
+ pg_catalog   │ pg_publication
+ pg_catalog   │ pg_publication_rel
+ pg_catalog   │ pg_subscription_rel
+ pg_catalog   │ pg_roles
+ pg_catalog   │ pg_locks
+ pg_catalog   │ pg_group
+ pg_catalog   │ pg_user
+ pg_catalog   │ pg_policies
+ pg_catalog   │ pg_rules
+ pg_catalog   │ pg_views
+ pg_catalog   │ pg_tables
+ pg_catalog   │ pg_matviews
+ pg_catalog   │ pg_indexes
+ pg_catalog   │ pg_sequences
+ pg_catalog   │ pg_stats
+ pg_catalog   │ pg_publication_tables
+ pg_catalog   │ pg_cursors
+ pg_catalog   │ pg_available_extensions
+ pg_catalog   │ pg_available_extension_versions
+ pg_catalog   │ pg_prepared_xacts
+ pg_catalog   │ pg_prepared_statements
+ pg_catalog   │ pg_seclabels
+ pg_catalog   │ pg_timezone_abbrevs
+ pg_catalog   │ pg_timezone_names
+ pg_catalog   │ pg_stat_all_tables
+ pg_catalog   │ pg_stat_xact_all_tables
+ pg_catalog   │ pg_stat_sys_tables
+ pg_catalog   │ pg_stat_xact_sys_tables
+ pg_catalog   │ pg_stat_sys_indexes
+ pg_catalog   │ pg_stat_user_indexes
+ pg_catalog   │ pg_statio_all_indexes
+ pg_catalog   │ pg_statio_sys_indexes
+ pg_catalog   │ pg_statio_user_indexes
+ pg_catalog   │ pg_statio_all_sequences
+ pg_catalog   │ pg_statio_sys_sequences
+ pg_catalog   │ pg_statio_user_sequences
+ pg_catalog   │ pg_stat_activity
+ pg_catalog   │ pg_stat_replication
+ pg_catalog   │ pg_stat_wal_receiver
+ pg_catalog   │ pg_stat_subscription
+ pg_catalog   │ pg_stat_ssl
+ pg_catalog   │ pg_replication_slots
+ pg_catalog   │ pg_stat_database
+ pg_catalog   │ pg_stat_database_conflicts
+ pg_catalog   │ pg_stat_user_functions
+ pg_catalog   │ pg_stat_xact_user_functions
+ pg_catalog   │ pg_stat_archiver
+ pg_catalog   │ pg_stat_bgwriter
+ pg_catalog   │ pg_stat_progress_vacuum
+ pg_catalog   │ pg_user_mappings
+ pg_catalog   │ pg_largeobject
+  #+end_src
+#+begin_comment
+Postgres exposes a range of tables that store information on objects
+
+these are arranged in the schema 'pg_catalog'
+
+- this is how OID's - object identifiers - are generated
+  - the result of an identity function, as the primary key of a system table
+    - TODO bonus points if you can name the system table responsible
+#+end_comment
+
+** How? =pg_catalog=
+The usage of =pg_*= in the project
+
+#+begin_src bash :results output
+rg pg_ ~/git/pg-deploy/
+#+end_src
+
+
+#+begin_src
+/home/qzdl/git/pg-deploy/src/cte.type.sql:    FROM pg_catalog.pg_type t
+/home/qzdl/git/pg-deploy/src/cte.type.sql:      LEFT JOIN pg_catalog.pg_namespace n ON n.oid = t.typnamespace
+/home/qzdl/git/pg-deploy/src/cte.type.sql:    WHERE (t.typrelid = 0 OR (SELECT c.relkind = 'c' FROM pg_catalog.pg_class c WHERE c.oid = t.typrelid))
+/home/qzdl/git/pg-deploy/src/cte.type.sql:      AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_type el WHERE el.oid = t.typelem AND el.typarray = t.oid)
+/home/qzdl/git/pg-deploy/src/cte.type.sql:      AND n.nspname <> 'pg_catalog'
+/home/qzdl/git/pg-deploy/src/cte.function.sql:           THEN p.proname||p.prosrc||pg_get_function_arguments(p.oid)
+/home/qzdl/git/pg-deploy/src/cte.function.sql:           ELSE pg_get_functiondef(p.oid) END),
+/home/qzdl/git/pg-deploy/src/cte.function.sql:      FROM pg_catalog.pg_proc p
+/home/qzdl/git/pg-deploy/src/cte.function.sql:      INNER JOIN pg_catalog.pg_namespace n ON n.oid = p.pronamespace
+/home/qzdl/git/pg-deploy/src/cte.function.sql:      LEFT JOIN pg_language l ON p.prolang = l.oid
+/home/qzdl/git/pg-deploy/src/cte.index.sql:        replace(pg_get_indexdef(indexrelid), target_schema||'.', source_schema||'.') AS id
+/home/qzdl/git/pg-deploy/src/cte.index.sql:    FROM pg_catalog.pg_index AS i
+/home/qzdl/git/pg-deploy/src/cte.index.sql:    INNER JOIN pg_catalog.pg_class AS ic ON ic.oid = i.indexrelid
+/home/qzdl/git/pg-deploy/src/cte.index.sql:    INNER JOIN pg_catalog.pg_namespace AS n ON n.oid = ic.relnamespace
+/home/qzdl/git/pg-deploy/src/cte.attribute.sql:      FROM pg_attribute AS a
+/home/qzdl/git/pg-deploy/src/cte.attribute.sql:      INNER JOIN pg_class AS cl ON cl.oid = a.attrelid AND cl.oid IN (soid, toid)
+/home/qzdl/git/pg-deploy/src/cte.attribute.sql:        SELECT n.nspname, n.oid FROM pg_namespace n
+/home/qzdl/git/pg-deploy/src/event_trigger.sql:      INNER JOIN pg_catalog.pg_event_trigger AS e
+/home/qzdl/git/pg-deploy/src/trigger.sql:          replace(pg_get_triggerdef(t_oid),
+/home/qzdl/git/pg-deploy/src/trigger.sql:    INNER JOIN pg_trigger as tg ON tg.oid = od.s_oid OR tg.oid = od.t_oid
+/home/qzdl/git/pg-deploy/src/trigger.sql:    INNER JOIN pg_class AS c ON c.oid = tg.tgrelid
+/home/qzdl/git/pg-deploy/src/function.sql:           ELSE pg_get_functiondef(t_oid) END),
+/home/qzdl/git/pg-deploy/src/function.sql:    INNER JOIN pg_proc p ON p.oid = s_oid OR p.oid = t_oid
+/home/qzdl/git/pg-deploy/src/function.sql:    LEFT JOIN pg_language l ON p.prolang = l.oid
+/home/qzdl/git/pg-deploy/src/function.sql:    LEFT JOIN pg_aggregate a ON a.aggfnoid = p.oid
+/home/qzdl/git/pg-deploy/src/table_attributes.sql:            pg_catalog.format_type(a.atttypid, a.atttypmod) as column_type,
+/home/qzdl/git/pg-deploy/src/table_attributes.sql:            SELECT substring(pg_catalog.pg_get_expr(d.adbin, d.adrelid) for 128)
+/home/qzdl/git/pg-deploy/src/table_attributes.sql:              FROM   pg_catalog.pg_attrdef d
+/home/qzdl/git/pg-deploy/src/table_attributes.sql:              SELECT substring(pg_catalog.pg_get_expr(d.adbin, d.adrelid) for 128)
+/home/qzdl/git/pg-deploy/src/table_attributes.sql:                FROM   pg_catalog.pg_attrdef d
+/home/qzdl/git/pg-deploy/src/table_attributes.sql:          LEFT JOIN pg_catalog.pg_attribute a
+/home/qzdl/git/pg-deploy/src/index.sql:          replace(pg_get_indexdef(t_oid),
+/hom/home/qzdl/git/pg-deploy/src/cte.table_trigger.sql:           replace(pg_get_triggerdef(tg.oid), target_schema||'.', source_schema||'.')
+/home/qzdl/git/pg-deploy/src/cte.table_trigger.sql:      FROM pg_catalog.pg_trigger AS tg
+/home/qzdl/git/pg-deploy/src/cte.table_trigger.sql:      INNER JOIN pg_catalog.pg_class AS ic ON ic.oid = tg.tgrelid
+/home/qzdl/git/pg-deploy/src/cte.table_trigger.sql:      INNER JOIN pg_catalog.pg_namespace AS n ON n.oid = ic.relnamespace
+/home/qzdl/git/pg-deploy/src/table_constraints.sql:            ||' ADD CONSTRAINT '||t_objname||' '||pg_get_constraintdef(t_oid)||';'
+/home/qzdl/git/pg-deploy/src/cte.relation.sql:      FROM pg_catalog.pg_class c
+/home/qzdl/git/pg-deploy/src/cte.relation.sql:      INNER JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+/home/qzdl/git/pg-deploy/src/cte.event_trigger.sql:      FROM pg_catalog.pg_event_trigger AS e
+/home/qzdl/git/pg-deploy/src/cte.constraint.sql:        c.conname ||' '||pg_get_constraintdef(c.oid)
+/home/qzdl/git/pg-deploy/src/cte.constraint.sql:    FROM pg_constraint AS c
+/home/qzdl/git/pg-deploy/src/cte.constraint.sql:    INNER JOIN pg_class AS cl ON cl.oid = c.conrelid AND cl.oid IN (soid, toid)
+/home/qzdl/git/pg-deploy/src/cte.constraint.sql:    INNER JOIN pg_attribute AS a ON a.attrelid = cl.oid
+/home/qzdl/git/pg-deploy/src/cte.constraint.sql:      FROM pg_namespace n
+/home/qzdl/git/pg-deploy/DEV/dependency-report.sql:    , '^(londiste|pgq|pg_toast)'::text AS schema_exclusion
+/home/qzdl/git/pg-deploy/DEV/dependency-report.sql:    , '^pg_(conversion|language|ts_(dict|template))'::text AS class_exclusion
+/home/qzdl/git/pg-deploy/DEV/dependency-report.sql:    FROM pg_depend dep
+/home/qzdl/git/pg-deploy/DEV/dependency-report.sql:      , LATERAL pg_identify_object(classid, objid, 0) AS obj
+/home/qzdl/git/pg-deploy/DEV/dependency-report.sql:      , LATERAL pg_identify_object(refclassid, refobjid, 0) AS refobj
+#+end_src
+
+
+
+** The evolution of diff :implementation:
+defining equality
+
+*** The anti-join and imperativism :explain:
+#+begin_src sql
+select 'DROP' as sign, r_source.column_name as col
+from information_schema.columns as r_source
+where table_name = object_name
+  and table_schema = og_schema_name
+  and not exists (
+    select column_name
+    from information_schema.columns as r_target
+    where r_target.table_name = object_name
+      and r_target.table_schema = ds_schema_name
+      and r_source.column_name = r_target.column_name)
+
+union all
+
+select 'ADD' as sign, a_target.column_name as col
+from information_schema.columns as a_target
+where table_name = object_name
+  and table_schema = ds_schema_name
+  and not exists (
+    select column_name
+    from information_schema.columns as a_source
+    where a_source.table_name = object_name
+      and a_source.table_schema = og_schema_name
+      and a_source.column_name = a_target.column_name)'
+#+end_src
+
+*** The anti-join and imperativism :analyse:
+#+begin_src sql
+select 'DROP'                         -- to identify candidates to DROP
+from information_schema.columns    R_SOURCE
+where table_name = OBJECT_NAME        -- get the
+  and table_schema = ORIGINAL_SCHEMA  -- source objects
+  and not exists (
+    select 1                          -- where no such target object exists
+    from information_schema.columns   R_TARGET
+    where r_target.table_name = OBJECT_NAME
+      and r_target.table_schema = TARGET_SCHEMA
+      and r_source.column_name = r_target.column_name)
+
+UNION ALL -- THE INVERSE            -- then, combine with..
+
+select 'ADD'                        -- candiates to ADD
+from information_schema.columns   A_TARGET
+where table_name = OBJECT_NAME       -- with the target objects
+  and table_schema = TARGET_SCHEMA
+  and not exists (
+    select 1                         -- where no such source object exists
+    from information_schema.columns as A_SOURCE
+    where a_source.table_name = OBJECT_NAME
+      and a_source.table_schema = ORIGINAL_SCHEMA
+      and a_source.column_name = a_target.column_name)'
+#+end_src
+
+*** The anti-join and imperativism :apply:
+#+begin_src sql
+drop table if exists d0, d1;
+create table if not exists d0(a int, b text, c int, d int, e int);
+create table if not exists d1(a int, b text, g int);
+
+select
+  r_source.table_name AS object_name,
+  'DROP' as sign,
+  r_source.column_name as col
+from information_schema.columns as r_source
+where table_name = 'd0'
+  and not exists (
+    select column_name
+    from information_schema.columns as r_target
+    where r_target.table_name = 'd1'
+      and r_source.column_name = r_target.column_name)
+union all
+select
+  a_target.table_name as object_name,
+  'ADD' as sign,
+  a_target.column_name as col
+from information_schema.columns as a_target
+where table_name = 'd1'
+  and not exists (
+    select column_name
+    from information_schema.columns as a_source
+    where a_source.table_name = 'd0'
+      and a_source.column_name = a_target.column_name);
+#+end_src
+
+#+results:
+:begin:
+ object_name │ sign │ col
+─────────────┼──────┼─────
+ d0          │ DROP │ c
+ d0          │ DROP │ d
+ d0          │ DROP │ e
+ d1          │ ADD  │ g
+:end:
+
+*** Generalising & relational thinking
+- a directed transformation
+- the identity of an object
+- a set of attributes
+- some notion of equality, as a function of the identity
+
+nothing too wild
+
+#+begin_comment
+the approach of writing this anti-join block over-and-over-and-over wasn't
+lending itself to reasoning about the program, making the process of further
+development difficult.
+
+a new standard for modelling this transition emerged in the form of a
+state-table, where some simple three-value logic can be applied over the set of
+attributes
+
+- drastically reducing the effort of producing new functions
+- normal structure of transfomation and helper functions
+- eliminating all possible repetition with only a smidge of dynamic programming
+
+the solution is a bootleg higher-order function
+#+end_comment
+
+
+*** Generalising & relational thinking :object_difference:
+
+#+begin_src sql
+CREATE OR REPLACE FUNCTION deploy.object_difference(
+    source_schema name, target_schema name, cte_fun text)
+RETURNS TABLE(
+    s_schema name, s_objname name, s_oid oid, s_id text,
+    t_schema name, t_objname name, t_oid oid, t_id text
+) AS $BODY$
+BEGIN
+    RETURN QUERY EXECUTE FORMAT('
+    with fun as (
+        select * from %1$s($1, $2)
+    )
+    SELECT DISTINCT
+        s_schema, s_objname, s_oid, s_id,
+        t_schema, t_objname, t_oid, t_id
+    FROM (
+        WITH ss AS (
+            SELECT nspname, objname, oid, id
+            FROM fun
+            WHERE nspname = $1
+        ),   tt AS (
+            SELECT nspname, objname, oid, id
+            FROM fun
+            WHERE nspname = $2
+        )
+        SELECT s.nspname as s_schema,
+               s.objname as s_objname,
+               s.oid     as s_oid,
+               s.id      as s_id,
+               t.nspname as t_schema,
+               t.objname as t_objname,
+               t.oid     as t_oid,
+               t.id      as t_id
+        FROM ss as s
+        LEFT JOIN tt as t ON s.id = t.id
+        UNION ALL
+        SELECT s.nspname  as s_schema,
+               s.objname  as s_objname,
+               s.oid      as s_oid,
+               s.id       as s_id,
+               t.nspname  as t_schema,
+               t.objname  as t_objname,
+               t.oid      as t_oid,
+               t.id as t_id
+        FROM tt as t
+        LEFT JOIN ss as s ON s.id = t.id
+    ) as AAA', cte_fun, source_schema, target_schema) USING source_schema, target_schema;
+END; $BODY$ LANGUAGE plpgsql STABLE;
+#+end_src
+
+#+begin_comment
+the solution is a poor man's higher-order function
+- C programmers will say this isn't a pointer because it can't cause a segfault
+
+
+reading top to bottom:
+- take source/target, and a reference to a function
+- fun as interim set (CTE) from higher order function
+- (ss/tt) interim sets as a partion of fun, by source/target
+- anti-join the =encoding= of identity (id) source->target
+- union the antijoin of target->source
+  - left join, nulls, because null is a valid encoding for the 3-value logic
+    that determines (DROP, ADD, NOTHING)
+- select the resultant rows, distinct because my poor join semantics yield
+  multiple rows
+
+because this returns a set that represents the transition, it can be =queries
+the whole way down=
+
+
+#+end_comment
+
+*** Generalising & relational thinking :cte:
+#+begin_src sql
+CREATE FUNCTION pgdeploy.cte_function(
+    source_schema name, target_schema name)
+RETURNS TABLE(
+    nspname name, objname name, oid oid, id text) AS
+$BODY$
+BEGIN
+    RETURN QUERY
+    SELECT
+        n.nspname AS nspname,
+        p.proname AS objname,
+        p.oid     AS oid,
+        replace((CASE WHEN l.lanname = 'internal'
+           THEN p.proname||p.prosrc||pg_get_function_arguments(p.oid)
+           ELSE pg_get_functiondef(p.oid) END),
+          target_schema||'.', source_schema||'.') AS id
+      FROM pg_catalog.pg_proc p
+      INNER JOIN pg_catalog.pg_namespace n ON n.oid = p.pronamespace
+      LEFT JOIN pg_language l ON p.prolang = l.oid
+      WHERE n.nspname NOT LIKE 'pg%'
+        AND n.nspname <> 'information_schema'
+        AND n.nspname IN (source_schema, target_schema)
+      ORDER BY n.nspname;
+END;
+$BODY$
+    LANGUAGE plpgsql STABLE;
+#+end_src
+*** Generalising & relational thinking :reconsile:
+#+begin_src sql
+CREATE OR REPLACE FUNCTION pgdeploy.reconcile_function(
+    source_schema name, target_schema name)
+RETURNS SETOF TEXT AS
+$BODY$
+BEGIN
+    RETURN QUERY
+    SELECT DISTINCT CASE
+      WHEN t_schema IS NULL THEN
+        'DROP '|| (CASE WHEN a.aggfnoid IS NOT NULL THEN 'AGGREGATE' ELSE 'FUNCTION' END)
+         ||' IF EXISTS '||s_schema||'.'||s_objname||';'
+      WHEN s_schema IS NULL THEN
+        replace((CASE WHEN l.lanname = 'internal'
+           THEN '-- unsupported function definition ('||t_objname||') '||p.prosrc
+           ELSE pg_get_functiondef(t_oid) END),
+          target_schema||'.', source_schema||'.')
+      ELSE
+        '-- LEFT and RIGHT of '''||s_objname||''' are equal'
+      END AS ddl
+    FROM pgdeploy.object_difference(source_schema, target_schema, 'pgdeploy.cte_function')
+    INNER JOIN pg_proc p ON p.oid = s_oid OR p.oid = t_oid
+    LEFT JOIN pg_language l ON p.prolang = l.oid
+    LEFT JOIN pg_aggregate a ON a.aggfnoid = p.oid
+    ORDER BY ddl DESC; -- comments and drops first
+END;
+$BODY$
+    LANGUAGE plpgsql STABLE;
+#+end_src
+*** Generalising & relational thinking :output:
+
+
+** Generating output :freelunch:
+** Generating output :makinglunch:
+** Applying it
+*** "pipelines"
+*** pgdeploy with discrete states
+*** pgdeploy against a running database
+
+** Getting there
+- The systematic brilliance of PostgreSQL
+  - source code quality
+  - documentation quality
+  - community quality
+
+- ATEAM
+  - Andre Ploger
+  - Cord Muller
+  - Laszlo Forro
+
+- Robert Debowski
+
+- pghackers mailing list
+- prior art
+  - TODO
+** Stats
+As of =d51cf9f854be7d19f790aad9da9f125984ca5607=, analysis by [[https://github.com/boyter/scc/][boyter/scc]].
+#+begin_src
+───────────────────────────────────────────────────────────────────────────────
+Language                 Files     Lines   Blanks  Comments     Code Complexity
+───────────────────────────────────────────────────────────────────────────────
+SQL                         38      2260      210       688     1362         73
+BASH                         5       328       65       137      126         23
+Makefile                     1        22        8         0       14          0
+Markdown                     1       994      200         0      794          0
+Org                          1       271       25         5      241          9
+Shell                        1        56        7        10       39          4
+gitignore                    1         8        0         0        8          0
+───────────────────────────────────────────────────────────────────────────────
+Total                       48      3939      515       840     2584        109
+───────────────────────────────────────────────────────────────────────────────
+Estimated Cost to Develop $73,198
+Estimated Schedule Effort 5.092429 months
+Estimated People Required 1.277007
+───────────────────────────────────────────────────────────────────────────────
+Processed 165939 bytes, 0.166 megabytes (SI)
+───────────────────────────────────────────────────────────────────────────────
+#+end_src

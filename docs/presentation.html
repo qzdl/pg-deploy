@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>PGDEPLOY</title>
+<meta name="author" content="(Samuel Culpepper)"/>
+<style type="text/css">
+.underline { text-decoration: underline; }
+</style>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js/dist/reveal.css"/>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js/dist/theme/night.css" id="theme"/>
+
+<link rel="stylesheet" href="/home/qzdl/life/talks/reveal-defaults.css"/>
+
+<!-- If the query includes 'print-pdf', include the PDF print sheet -->
+<script>
+    if( window.location.search.match( /print-pdf/gi ) ) {
+        var link = document.createElement( 'link' );
+        link.rel = 'stylesheet';
+        link.type = 'text/css';
+        link.href = 'https://cdn.jsdelivr.net/npm/reveal.js/css/print/pdf.css';
+        document.getElementsByTagName( 'head' )[0].appendChild( link );
+    }
+</script>
+</head>
+<body>
+<div class="reveal">
+<div class="slides">
+<section id="sec-title-slide"><h1 class="title">PGDEPLOY</h1><h2 class="author">Samuel Culpepper</h2><p class="date">Created: 2020-11-13 Fri 10:38</p>
+</section>
+
+<section>
+<section id="slide-orgfa82a2d">
+<h2 id="orgfa82a2d">Overview</h2>
+<ul>
+<li>the problem statement</li>
+<li>how to know what Postgres knows</li>
+<li>working with Postgres internals</li>
+<li>implementing diff</li>
+<li>using pgdeploy</li>
+<li>inspiration and thanks</li>
+
+</ul>
+
+</section>
+</section>
+<section>
+<section id="slide-org7d204f6">
+<h2 id="org7d204f6">What is pgdeploy?</h2>
+<ul>
+<li>a Postgres extension</li>
+<li>a sql code generator</li>
+<li>command line interface</li>
+<li>for migrations</li>
+<li>for testing</li>
+<li>flotsam detector</li>
+
+</ul>
+</section>
+</section>
+<section>
+<section id="slide-orged96517">
+<h2 id="orged96517">The problem statement</h2>
+<ul>
+<li>changesets are unwieldy</li>
+<li>enable reasoning about states definition</li>
+<li>minimise dependencies</li>
+<li>repeatability matters</li>
+
+</ul>
+
+</section>
+</section>
+<section>
+<section id="slide-org6bc3321">
+<h2 id="org6bc3321">How? <code>pg_dump</code></h2>
+<p>
+<code>pg_dump</code> is the reference point for SQL object generation
+</p>
+<ul>
+<li>rip objects out as a set of <code>CREATE</code> statements</li>
+<li>then <code>pg_restore</code> somewhere else</li>
+
+</ul>
+
+<p>
+great for ultimatums
+</p>
+<ul>
+<li>clean databases</li>
+<li>backups</li>
+
+</ul>
+
+<p>
+but no workflow to model changes in objects
+</p>
+
+</section>
+</section>
+<section>
+<section id="slide-orgacb8858">
+<h2 id="orgacb8858">How? <code>pg_catalog</code></h2>
+<p>
+<code>pg_catalog</code> knows more than we do
+</p>
+
+
+<div class="org-src-container">
+
+<pre  class="src src-sql"><code trim><span style="color: #b6a0ff;">select</span> table_schema, <span style="color: #b6a0ff;">table_name</span> <span style="color: #b6a0ff;">from</span> information_schema.tables
+<span style="color: #b6a0ff;">where</span> table_schema = <span style="color: #79a8ff;">'pg_catalog'</span>
+</code></pre>
+</div>
+
+<pre  class="example">
+ table_schema │           table_name
+──────────────┼─────────────────────────────────
+ pg_catalog   │ pg_statistic
+ pg_catalog   │ pg_type
+ pg_catalog   │ pg_policy
+ pg_catalog   │ pg_authid
+ pg_catalog   │ pg_shadow
+ pg_catalog   │ pg_settings
+ pg_catalog   │ pg_hba_file_rules
+ pg_catalog   │ pg_file_settings
+ pg_catalog   │ pg_config
+ pg_catalog   │ pg_user_mapping
+ pg_catalog   │ pg_replication_origin_status
+ pg_catalog   │ pg_subscription
+ pg_catalog   │ pg_stat_user_tables
+ pg_catalog   │ pg_stat_xact_user_tables
+ pg_catalog   │ pg_attribute
+ pg_catalog   │ pg_proc
+ pg_catalog   │ pg_class
+ pg_catalog   │ pg_attrdef
+ pg_catalog   │ pg_constraint
+ pg_catalog   │ pg_statio_all_tables
+ pg_catalog   │ pg_statio_sys_tables
+ pg_catalog   │ pg_statio_user_tables
+ pg_catalog   │ pg_stat_all_indexes
+ pg_catalog   │ pg_inherits
+ pg_catalog   │ pg_index
+ pg_catalog   │ pg_operator
+ pg_catalog   │ pg_opfamily
+ pg_catalog   │ pg_opclass
+ pg_catalog   │ pg_am
+ pg_catalog   │ pg_amop
+ pg_catalog   │ pg_amproc
+ pg_catalog   │ pg_language
+ pg_catalog   │ pg_largeobject_metadata
+ pg_catalog   │ pg_aggregate
+ pg_catalog   │ pg_statistic_ext
+ pg_catalog   │ pg_rewrite
+ pg_catalog   │ pg_trigger
+ pg_catalog   │ pg_event_trigger
+ pg_catalog   │ pg_description
+ pg_catalog   │ pg_cast
+ pg_catalog   │ pg_enum
+ pg_catalog   │ pg_namespace
+ pg_catalog   │ pg_conversion
+ pg_catalog   │ pg_depend
+ pg_catalog   │ pg_database
+ pg_catalog   │ pg_db_role_setting
+ pg_catalog   │ pg_tablespace
+ pg_catalog   │ pg_pltemplate
+ pg_catalog   │ pg_auth_members
+ pg_catalog   │ pg_shdepend
+ pg_catalog   │ pg_shdescription
+ pg_catalog   │ pg_ts_config
+ pg_catalog   │ pg_ts_config_map
+ pg_catalog   │ pg_ts_dict
+ pg_catalog   │ pg_ts_parser
+ pg_catalog   │ pg_ts_template
+ pg_catalog   │ pg_extension
+ pg_catalog   │ pg_foreign_data_wrapper
+ pg_catalog   │ pg_foreign_server
+ pg_catalog   │ pg_foreign_table
+ pg_catalog   │ pg_replication_origin
+ pg_catalog   │ pg_default_acl
+ pg_catalog   │ pg_init_privs
+ pg_catalog   │ pg_seclabel
+ pg_catalog   │ pg_shseclabel
+ pg_catalog   │ pg_collation
+ pg_catalog   │ pg_partitioned_table
+ pg_catalog   │ pg_range
+ pg_catalog   │ pg_transform
+ pg_catalog   │ pg_sequence
+ pg_catalog   │ pg_publication
+ pg_catalog   │ pg_publication_rel
+ pg_catalog   │ pg_subscription_rel
+ pg_catalog   │ pg_roles
+ pg_catalog   │ pg_locks
+ pg_catalog   │ pg_group
+ pg_catalog   │ pg_user
+ pg_catalog   │ pg_policies
+ pg_catalog   │ pg_rules
+ pg_catalog   │ pg_views
+ pg_catalog   │ pg_tables
+ pg_catalog   │ pg_matviews
+ pg_catalog   │ pg_indexes
+ pg_catalog   │ pg_sequences
+ pg_catalog   │ pg_stats
+ pg_catalog   │ pg_publication_tables
+ pg_catalog   │ pg_cursors
+ pg_catalog   │ pg_available_extensions
+ pg_catalog   │ pg_available_extension_versions
+ pg_catalog   │ pg_prepared_xacts
+ pg_catalog   │ pg_prepared_statements
+ pg_catalog   │ pg_seclabels
+ pg_catalog   │ pg_timezone_abbrevs
+ pg_catalog   │ pg_timezone_names
+ pg_catalog   │ pg_stat_all_tables
+ pg_catalog   │ pg_stat_xact_all_tables
+ pg_catalog   │ pg_stat_sys_tables
+ pg_catalog   │ pg_stat_xact_sys_tables
+ pg_catalog   │ pg_stat_sys_indexes
+ pg_catalog   │ pg_stat_user_indexes
+ pg_catalog   │ pg_statio_all_indexes
+ pg_catalog   │ pg_statio_sys_indexes
+ pg_catalog   │ pg_statio_user_indexes
+ pg_catalog   │ pg_statio_all_sequences
+ pg_catalog   │ pg_statio_sys_sequences
+ pg_catalog   │ pg_statio_user_sequences
+ pg_catalog   │ pg_stat_activity
+ pg_catalog   │ pg_stat_replication
+ pg_catalog   │ pg_stat_wal_receiver
+ pg_catalog   │ pg_stat_subscription
+ pg_catalog   │ pg_stat_ssl
+ pg_catalog   │ pg_replication_slots
+ pg_catalog   │ pg_stat_database
+ pg_catalog   │ pg_stat_database_conflicts
+ pg_catalog   │ pg_stat_user_functions
+ pg_catalog   │ pg_stat_xact_user_functions
+ pg_catalog   │ pg_stat_archiver
+ pg_catalog   │ pg_stat_bgwriter
+ pg_catalog   │ pg_stat_progress_vacuum
+ pg_catalog   │ pg_user_mappings
+ pg_catalog   │ pg_largeobject
+</pre>
+
+</section>
+</section>
+<section>
+<section id="slide-org07a3343">
+<h2 id="org07a3343">How? <code>pg_catalog</code></h2>
+<p>
+The usage of <code>pg_*</code> in the project
+</p>
+
+<div class="org-src-container">
+
+<pre  class="src src-bash"><code trim>rg pg_ ~/git/pg-deploy/
+</code></pre>
+</div>
+
+
+<pre  class="example">
+/home/qzdl/git/pg-deploy/src/cte.type.sql:    FROM pg_catalog.pg_type t
+/home/qzdl/git/pg-deploy/src/cte.type.sql:      LEFT JOIN pg_catalog.pg_namespace n ON n.oid = t.typnamespace
+/home/qzdl/git/pg-deploy/src/cte.type.sql:    WHERE (t.typrelid = 0 OR (SELECT c.relkind = 'c' FROM pg_catalog.pg_class c WHERE c.oid = t.typrelid))
+/home/qzdl/git/pg-deploy/src/cte.type.sql:      AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_type el WHERE el.oid = t.typelem AND el.typarray = t.oid)
+/home/qzdl/git/pg-deploy/src/cte.type.sql:      AND n.nspname &lt;&gt; 'pg_catalog'
+/home/qzdl/git/pg-deploy/src/cte.function.sql:           THEN p.proname||p.prosrc||pg_get_function_arguments(p.oid)
+/home/qzdl/git/pg-deploy/src/cte.function.sql:           ELSE pg_get_functiondef(p.oid) END),
+/home/qzdl/git/pg-deploy/src/cte.function.sql:      FROM pg_catalog.pg_proc p
+/home/qzdl/git/pg-deploy/src/cte.function.sql:      INNER JOIN pg_catalog.pg_namespace n ON n.oid = p.pronamespace
+/home/qzdl/git/pg-deploy/src/cte.function.sql:      LEFT JOIN pg_language l ON p.prolang = l.oid
+/home/qzdl/git/pg-deploy/src/cte.index.sql:        replace(pg_get_indexdef(indexrelid), target_schema||'.', source_schema||'.') AS id
+/home/qzdl/git/pg-deploy/src/cte.index.sql:    FROM pg_catalog.pg_index AS i
+/home/qzdl/git/pg-deploy/src/cte.index.sql:    INNER JOIN pg_catalog.pg_class AS ic ON ic.oid = i.indexrelid
+/home/qzdl/git/pg-deploy/src/cte.index.sql:    INNER JOIN pg_catalog.pg_namespace AS n ON n.oid = ic.relnamespace
+/home/qzdl/git/pg-deploy/src/cte.attribute.sql:      FROM pg_attribute AS a
+/home/qzdl/git/pg-deploy/src/cte.attribute.sql:      INNER JOIN pg_class AS cl ON cl.oid = a.attrelid AND cl.oid IN (soid, toid)
+/home/qzdl/git/pg-deploy/src/cte.attribute.sql:        SELECT n.nspname, n.oid FROM pg_namespace n
+/home/qzdl/git/pg-deploy/src/event_trigger.sql:      INNER JOIN pg_catalog.pg_event_trigger AS e
+/home/qzdl/git/pg-deploy/src/trigger.sql:          replace(pg_get_triggerdef(t_oid),
+/home/qzdl/git/pg-deploy/src/trigger.sql:    INNER JOIN pg_trigger as tg ON tg.oid = od.s_oid OR tg.oid = od.t_oid
+/home/qzdl/git/pg-deploy/src/trigger.sql:    INNER JOIN pg_class AS c ON c.oid = tg.tgrelid
+/home/qzdl/git/pg-deploy/src/function.sql:           ELSE pg_get_functiondef(t_oid) END),
+/home/qzdl/git/pg-deploy/src/function.sql:    INNER JOIN pg_proc p ON p.oid = s_oid OR p.oid = t_oid
+/home/qzdl/git/pg-deploy/src/function.sql:    LEFT JOIN pg_language l ON p.prolang = l.oid
+/home/qzdl/git/pg-deploy/src/function.sql:    LEFT JOIN pg_aggregate a ON a.aggfnoid = p.oid
+/home/qzdl/git/pg-deploy/src/table_attributes.sql:            pg_catalog.format_type(a.atttypid, a.atttypmod) as column_type,
+/home/qzdl/git/pg-deploy/src/table_attributes.sql:            SELECT substring(pg_catalog.pg_get_expr(d.adbin, d.adrelid) for 128)
+/home/qzdl/git/pg-deploy/src/table_attributes.sql:              FROM   pg_catalog.pg_attrdef d
+/home/qzdl/git/pg-deploy/src/table_attributes.sql:              SELECT substring(pg_catalog.pg_get_expr(d.adbin, d.adrelid) for 128)
+/home/qzdl/git/pg-deploy/src/table_attributes.sql:                FROM   pg_catalog.pg_attrdef d
+/home/qzdl/git/pg-deploy/src/table_attributes.sql:          LEFT JOIN pg_catalog.pg_attribute a
+/home/qzdl/git/pg-deploy/src/index.sql:          replace(pg_get_indexdef(t_oid),
+/hom/home/qzdl/git/pg-deploy/src/cte.table_trigger.sql:           replace(pg_get_triggerdef(tg.oid), target_schema||'.', source_schema||'.')
+/home/qzdl/git/pg-deploy/src/cte.table_trigger.sql:      FROM pg_catalog.pg_trigger AS tg
+/home/qzdl/git/pg-deploy/src/cte.table_trigger.sql:      INNER JOIN pg_catalog.pg_class AS ic ON ic.oid = tg.tgrelid
+/home/qzdl/git/pg-deploy/src/cte.table_trigger.sql:      INNER JOIN pg_catalog.pg_namespace AS n ON n.oid = ic.relnamespace
+/home/qzdl/git/pg-deploy/src/table_constraints.sql:            ||' ADD CONSTRAINT '||t_objname||' '||pg_get_constraintdef(t_oid)||';'
+/home/qzdl/git/pg-deploy/src/cte.relation.sql:      FROM pg_catalog.pg_class c
+/home/qzdl/git/pg-deploy/src/cte.relation.sql:      INNER JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+/home/qzdl/git/pg-deploy/src/cte.event_trigger.sql:      FROM pg_catalog.pg_event_trigger AS e
+/home/qzdl/git/pg-deploy/src/cte.constraint.sql:        c.conname ||' '||pg_get_constraintdef(c.oid)
+/home/qzdl/git/pg-deploy/src/cte.constraint.sql:    FROM pg_constraint AS c
+/home/qzdl/git/pg-deploy/src/cte.constraint.sql:    INNER JOIN pg_class AS cl ON cl.oid = c.conrelid AND cl.oid IN (soid, toid)
+/home/qzdl/git/pg-deploy/src/cte.constraint.sql:    INNER JOIN pg_attribute AS a ON a.attrelid = cl.oid
+/home/qzdl/git/pg-deploy/src/cte.constraint.sql:      FROM pg_namespace n
+/home/qzdl/git/pg-deploy/DEV/dependency-report.sql:    , '^(londiste|pgq|pg_toast)'::text AS schema_exclusion
+/home/qzdl/git/pg-deploy/DEV/dependency-report.sql:    , '^pg_(conversion|language|ts_(dict|template))'::text AS class_exclusion
+/home/qzdl/git/pg-deploy/DEV/dependency-report.sql:    FROM pg_depend dep
+/home/qzdl/git/pg-deploy/DEV/dependency-report.sql:      , LATERAL pg_identify_object(classid, objid, 0) AS obj
+/home/qzdl/git/pg-deploy/DEV/dependency-report.sql:      , LATERAL pg_identify_object(refclassid, refobjid, 0) AS refobj
+</pre>
+
+
+
+</section>
+</section>
+<section>
+<section id="slide-org1f7decd">
+<h2 id="org1f7decd">The evolution of diff&#xa0;&#xa0;&#xa0;<span class="tag"><span class="implementation">implementation</span></span></h2>
+<p>
+defining equality
+</p>
+
+</section>
+<section id="slide-org97a3d63">
+<h3 id="org97a3d63">The anti-join and imperativism&#xa0;&#xa0;&#xa0;<span class="tag"><span class="explain">explain</span></span></h3>
+<div class="org-src-container">
+
+<pre  class="src src-sql"><code trim><span style="color: #b6a0ff;">select</span> <span style="color: #79a8ff;">'DROP'</span> <span style="color: #b6a0ff;">as</span> sign, r_source.<span style="color: #b6a0ff;">column_name</span> <span style="color: #b6a0ff;">as</span> col
+<span style="color: #b6a0ff;">from</span> information_schema.columns <span style="color: #b6a0ff;">as</span> r_source
+<span style="color: #b6a0ff;">where</span> <span style="color: #b6a0ff;">table_name</span> = object_name
+  <span style="color: #b6a0ff;">and</span> table_schema = og_schema_name
+  <span style="color: #b6a0ff;">and</span> <span style="color: #b6a0ff;">not</span> <span style="color: #b6a0ff;">exists</span> (
+    <span style="color: #b6a0ff;">select</span> <span style="color: #b6a0ff;">column_name</span>
+    <span style="color: #b6a0ff;">from</span> information_schema.columns <span style="color: #b6a0ff;">as</span> r_target
+    <span style="color: #b6a0ff;">where</span> r_target.<span style="color: #b6a0ff;">table_name</span> = object_name
+      <span style="color: #b6a0ff;">and</span> r_target.table_schema = ds_schema_name
+      <span style="color: #b6a0ff;">and</span> r_source.<span style="color: #b6a0ff;">column_name</span> = r_target.<span style="color: #b6a0ff;">column_name</span>)
+
+<span style="color: #b6a0ff;">union</span> <span style="color: #b6a0ff;">all</span>
+
+<span style="color: #b6a0ff;">select</span> <span style="color: #79a8ff;">'ADD'</span> <span style="color: #b6a0ff;">as</span> sign, a_target.<span style="color: #b6a0ff;">column_name</span> <span style="color: #b6a0ff;">as</span> col
+<span style="color: #b6a0ff;">from</span> information_schema.columns <span style="color: #b6a0ff;">as</span> a_target
+<span style="color: #b6a0ff;">where</span> <span style="color: #b6a0ff;">table_name</span> = object_name
+  <span style="color: #b6a0ff;">and</span> table_schema = ds_schema_name
+  <span style="color: #b6a0ff;">and</span> <span style="color: #b6a0ff;">not</span> <span style="color: #b6a0ff;">exists</span> (
+    <span style="color: #b6a0ff;">select</span> <span style="color: #b6a0ff;">column_name</span>
+    <span style="color: #b6a0ff;">from</span> information_schema.columns <span style="color: #b6a0ff;">as</span> a_source
+    <span style="color: #b6a0ff;">where</span> a_source.<span style="color: #b6a0ff;">table_name</span> = object_name
+      <span style="color: #b6a0ff;">and</span> a_source.table_schema = og_schema_name
+      <span style="color: #b6a0ff;">and</span> a_source.<span style="color: #b6a0ff;">column_name</span> = a_target.<span style="color: #b6a0ff;">column_name</span>)<span style="color: #79a8ff;">'</span>
+</code></pre>
+</div>
+
+</section>
+<section id="slide-orge60f6e7">
+<h3 id="orge60f6e7">The anti-join and imperativism&#xa0;&#xa0;&#xa0;<span class="tag"><span class="analyse">analyse</span></span></h3>
+<div class="org-src-container">
+
+<pre  class="src src-sql"><code trim><span style="color: #b6a0ff;">select</span> <span style="color: #79a8ff;">'DROP'</span>                         <span style="color: #a8a8a8;">-- to identify candidates to DROP</span>
+<span style="color: #b6a0ff;">from</span> information_schema.columns    R_SOURCE
+<span style="color: #b6a0ff;">where</span> <span style="color: #b6a0ff;">table_name</span> = OBJECT_NAME        <span style="color: #a8a8a8;">-- get the</span>
+  <span style="color: #b6a0ff;">and</span> table_schema = ORIGINAL_SCHEMA  <span style="color: #a8a8a8;">-- source objects</span>
+  <span style="color: #b6a0ff;">and</span> <span style="color: #b6a0ff;">not</span> <span style="color: #b6a0ff;">exists</span> (
+    <span style="color: #b6a0ff;">select</span> <span style="color: #00bcff;">1</span>                          <span style="color: #a8a8a8;">-- where no such target object exists</span>
+    <span style="color: #b6a0ff;">from</span> information_schema.columns   R_TARGET
+    <span style="color: #b6a0ff;">where</span> r_target.<span style="color: #b6a0ff;">table_name</span> = OBJECT_NAME
+      <span style="color: #b6a0ff;">and</span> r_target.table_schema = TARGET_SCHEMA
+      <span style="color: #b6a0ff;">and</span> r_source.<span style="color: #b6a0ff;">column_name</span> = r_target.<span style="color: #b6a0ff;">column_name</span>)
+
+<span style="color: #b6a0ff;">UNION</span> <span style="color: #b6a0ff;">ALL</span> <span style="color: #a8a8a8;">-- THE INVERSE            -- then, combine with..</span>
+
+<span style="color: #b6a0ff;">select</span> <span style="color: #79a8ff;">'ADD'</span>                        <span style="color: #a8a8a8;">-- candiates to ADD</span>
+<span style="color: #b6a0ff;">from</span> information_schema.columns   A_TARGET
+<span style="color: #b6a0ff;">where</span> <span style="color: #b6a0ff;">table_name</span> = OBJECT_NAME       <span style="color: #a8a8a8;">-- with the target objects</span>
+  <span style="color: #b6a0ff;">and</span> table_schema = TARGET_SCHEMA
+  <span style="color: #b6a0ff;">and</span> <span style="color: #b6a0ff;">not</span> <span style="color: #b6a0ff;">exists</span> (
+    <span style="color: #b6a0ff;">select</span> <span style="color: #00bcff;">1</span>                         <span style="color: #a8a8a8;">-- where no such source object exists</span>
+    <span style="color: #b6a0ff;">from</span> information_schema.columns <span style="color: #b6a0ff;">as</span> A_SOURCE
+    <span style="color: #b6a0ff;">where</span> a_source.<span style="color: #b6a0ff;">table_name</span> = OBJECT_NAME
+      <span style="color: #b6a0ff;">and</span> a_source.table_schema = ORIGINAL_SCHEMA
+      <span style="color: #b6a0ff;">and</span> a_source.<span style="color: #b6a0ff;">column_name</span> = a_target.<span style="color: #b6a0ff;">column_name</span>)<span style="color: #79a8ff;">'</span>
+</code></pre>
+</div>
+
+</section>
+<section id="slide-orgd36209c">
+<h3 id="orgd36209c">The anti-join and imperativism&#xa0;&#xa0;&#xa0;<span class="tag"><span class="apply">apply</span></span></h3>
+<div class="org-src-container">
+
+<pre  class="src src-sql"><code trim><span style="color: #b6a0ff;">drop</span> <span style="color: #b6a0ff;">table</span> <span style="color: #feacd0;">if</span> <span style="color: #b6a0ff;">exists</span> d0, d1;
+<span style="color: #b6a0ff;">create</span> <span style="color: #b6a0ff;">table</span> if <span style="color: #b6a0ff;">not</span> <span style="color: #b6a0ff;">exists</span> <span style="color: #feacd0;">d0</span>(a <span style="color: #f78fe7;">int</span>, b text, c <span style="color: #f78fe7;">int</span>, d <span style="color: #f78fe7;">int</span>, e <span style="color: #f78fe7;">int</span>);
+<span style="color: #b6a0ff;">create</span> <span style="color: #b6a0ff;">table</span> if <span style="color: #b6a0ff;">not</span> <span style="color: #b6a0ff;">exists</span> <span style="color: #feacd0;">d1</span>(a <span style="color: #f78fe7;">int</span>, b text, g <span style="color: #f78fe7;">int</span>);
+
+<span style="color: #b6a0ff;">select</span>
+  r_source.<span style="color: #b6a0ff;">table_name</span> <span style="color: #b6a0ff;">AS</span> object_name,
+  <span style="color: #79a8ff;">'DROP'</span> <span style="color: #b6a0ff;">as</span> sign,
+  r_source.<span style="color: #b6a0ff;">column_name</span> <span style="color: #b6a0ff;">as</span> col
+<span style="color: #b6a0ff;">from</span> information_schema.columns <span style="color: #b6a0ff;">as</span> r_source
+<span style="color: #b6a0ff;">where</span> <span style="color: #b6a0ff;">table_name</span> = <span style="color: #79a8ff;">'d0'</span>
+  <span style="color: #b6a0ff;">and</span> <span style="color: #b6a0ff;">not</span> <span style="color: #b6a0ff;">exists</span> (
+    <span style="color: #b6a0ff;">select</span> <span style="color: #b6a0ff;">column_name</span>
+    <span style="color: #b6a0ff;">from</span> information_schema.columns <span style="color: #b6a0ff;">as</span> r_target
+    <span style="color: #b6a0ff;">where</span> r_target.<span style="color: #b6a0ff;">table_name</span> = <span style="color: #79a8ff;">'d1'</span>
+      <span style="color: #b6a0ff;">and</span> r_source.<span style="color: #b6a0ff;">column_name</span> = r_target.<span style="color: #b6a0ff;">column_name</span>)
+<span style="color: #b6a0ff;">union</span> <span style="color: #b6a0ff;">all</span>
+<span style="color: #b6a0ff;">select</span>
+  a_target.<span style="color: #b6a0ff;">table_name</span> <span style="color: #b6a0ff;">as</span> object_name,
+  <span style="color: #79a8ff;">'ADD'</span> <span style="color: #b6a0ff;">as</span> sign,
+  a_target.<span style="color: #b6a0ff;">column_name</span> <span style="color: #b6a0ff;">as</span> col
+<span style="color: #b6a0ff;">from</span> information_schema.columns <span style="color: #b6a0ff;">as</span> a_target
+<span style="color: #b6a0ff;">where</span> <span style="color: #b6a0ff;">table_name</span> = <span style="color: #79a8ff;">'d1'</span>
+  <span style="color: #b6a0ff;">and</span> <span style="color: #b6a0ff;">not</span> <span style="color: #b6a0ff;">exists</span> (
+    <span style="color: #b6a0ff;">select</span> <span style="color: #b6a0ff;">column_name</span>
+    <span style="color: #b6a0ff;">from</span> information_schema.columns <span style="color: #b6a0ff;">as</span> a_source
+    <span style="color: #b6a0ff;">where</span> a_source.<span style="color: #b6a0ff;">table_name</span> = <span style="color: #79a8ff;">'d0'</span>
+      <span style="color: #b6a0ff;">and</span> a_source.<span style="color: #b6a0ff;">column_name</span> = a_target.<span style="color: #b6a0ff;">column_name</span>);
+</code></pre>
+</div>
+
+</section>
+<section id="slide-org6aeb46a">
+<h3 id="org6aeb46a">Generalising &amp; relational thinking</h3>
+<ul>
+<li>a directed transformation</li>
+<li>the identity of an object</li>
+<li>a set of attributes</li>
+<li>some notion of equality, as a function of the identity</li>
+
+</ul>
+
+<p>
+nothing too wild
+</p>
+
+
+</section>
+<section id="slide-org71f8553">
+<h3 id="org71f8553">Generalising &amp; relational thinking&#xa0;&#xa0;&#xa0;<span class="tag"><span class="object_difference">object_difference</span></span></h3>
+<div class="org-src-container">
+
+<pre  class="src src-sql"><code trim><span style="color: #b6a0ff;">CREATE</span> <span style="color: #b6a0ff;">OR</span> REPLACE <span style="color: #b6a0ff;">FUNCTION</span> <span style="color: #feacd0;">deploy.object_difference</span>(
+    source_schema <span style="color: #b6a0ff;">name</span>, target_schema <span style="color: #b6a0ff;">name</span>, cte_fun text)
+<span style="color: #b6a0ff;">RETURNS</span> <span style="color: #b6a0ff;">TABLE</span>(
+    s_schema <span style="color: #b6a0ff;">name</span>, s_objname <span style="color: #b6a0ff;">name</span>, s_oid oid, s_id text,
+    t_schema <span style="color: #b6a0ff;">name</span>, t_objname <span style="color: #b6a0ff;">name</span>, t_oid oid, t_id text
+) <span style="color: #b6a0ff;">AS</span> $BODY$
+<span style="color: #b6a0ff;">BEGIN</span>
+    <span style="color: #b6a0ff;">RETURN</span> QUERY <span style="color: #b6a0ff;">EXECUTE</span> FORMAT(<span style="color: #79a8ff;">'</span>
+<span style="color: #79a8ff;">    with fun as (</span>
+<span style="color: #79a8ff;">        select * from %1$s($1, $2)</span>
+<span style="color: #79a8ff;">    )</span>
+<span style="color: #79a8ff;">    SELECT DISTINCT</span>
+<span style="color: #79a8ff;">        s_schema, s_objname, s_oid, s_id,</span>
+<span style="color: #79a8ff;">        t_schema, t_objname, t_oid, t_id</span>
+<span style="color: #79a8ff;">    FROM (</span>
+<span style="color: #79a8ff;">        WITH ss AS (</span>
+<span style="color: #79a8ff;">            SELECT nspname, objname, oid, id</span>
+<span style="color: #79a8ff;">            FROM fun</span>
+<span style="color: #79a8ff;">            WHERE nspname = $1</span>
+<span style="color: #79a8ff;">        ),   tt AS (</span>
+<span style="color: #79a8ff;">            SELECT nspname, objname, oid, id</span>
+<span style="color: #79a8ff;">            FROM fun</span>
+<span style="color: #79a8ff;">            WHERE nspname = $2</span>
+<span style="color: #79a8ff;">        )</span>
+<span style="color: #79a8ff;">        SELECT s.nspname as s_schema,</span>
+<span style="color: #79a8ff;">               s.objname as s_objname,</span>
+<span style="color: #79a8ff;">               s.oid     as s_oid,</span>
+<span style="color: #79a8ff;">               s.id      as s_id,</span>
+<span style="color: #79a8ff;">               t.nspname as t_schema,</span>
+<span style="color: #79a8ff;">               t.objname as t_objname,</span>
+<span style="color: #79a8ff;">               t.oid     as t_oid,</span>
+<span style="color: #79a8ff;">               t.id      as t_id</span>
+<span style="color: #79a8ff;">        FROM ss as s</span>
+<span style="color: #79a8ff;">        LEFT JOIN tt as t ON s.id = t.id</span>
+<span style="color: #79a8ff;">        UNION ALL</span>
+<span style="color: #79a8ff;">        SELECT s.nspname  as s_schema,</span>
+<span style="color: #79a8ff;">               s.objname  as s_objname,</span>
+<span style="color: #79a8ff;">               s.oid      as s_oid,</span>
+<span style="color: #79a8ff;">               s.id       as s_id,</span>
+<span style="color: #79a8ff;">               t.nspname  as t_schema,</span>
+<span style="color: #79a8ff;">               t.objname  as t_objname,</span>
+<span style="color: #79a8ff;">               t.oid      as t_oid,</span>
+<span style="color: #79a8ff;">               t.id as t_id</span>
+<span style="color: #79a8ff;">        FROM tt as t</span>
+<span style="color: #79a8ff;">        LEFT JOIN ss as s ON s.id = t.id</span>
+<span style="color: #79a8ff;">    ) as AAA'</span>, cte_fun, source_schema, target_schema) <span style="color: #b6a0ff;">USING</span> source_schema, target_schema;
+<span style="color: #b6a0ff;">END</span>; $BODY$ <span style="color: #b6a0ff;">LANGUAGE</span> plpgsql STABLE;
+</code></pre>
+</div>
+
+</section>
+<section id="slide-orgb843446">
+<h3 id="orgb843446">Generalising &amp; relational thinking&#xa0;&#xa0;&#xa0;<span class="tag"><span class="cte">cte</span></span></h3>
+<div class="org-src-container">
+
+<pre  class="src src-sql"><code trim><span style="color: #b6a0ff;">CREATE</span> <span style="color: #b6a0ff;">FUNCTION</span> <span style="color: #feacd0;">pgdeploy.cte_function</span>(
+    source_schema <span style="color: #b6a0ff;">name</span>, target_schema <span style="color: #b6a0ff;">name</span>)
+<span style="color: #b6a0ff;">RETURNS</span> <span style="color: #b6a0ff;">TABLE</span>(
+    nspname <span style="color: #b6a0ff;">name</span>, objname <span style="color: #b6a0ff;">name</span>, oid oid, id text) <span style="color: #b6a0ff;">AS</span>
+$BODY$
+<span style="color: #b6a0ff;">BEGIN</span>
+    <span style="color: #b6a0ff;">RETURN</span> QUERY
+    <span style="color: #b6a0ff;">SELECT</span>
+        n.nspname <span style="color: #b6a0ff;">AS</span> nspname,
+        p.proname <span style="color: #b6a0ff;">AS</span> objname,
+        p.oid     <span style="color: #b6a0ff;">AS</span> oid,
+        replace((<span style="color: #b6a0ff;">CASE</span> <span style="color: #b6a0ff;">WHEN</span> l.lanname = <span style="color: #79a8ff;">'internal'</span>
+           <span style="color: #b6a0ff;">THEN</span> p.proname||p.prosrc||pg_get_function_arguments(p.oid)
+           <span style="color: #b6a0ff;">ELSE</span> pg_get_functiondef(p.oid) <span style="color: #b6a0ff;">END</span>),
+          target_schema||<span style="color: #79a8ff;">'.'</span>, source_schema||<span style="color: #79a8ff;">'.'</span>) <span style="color: #b6a0ff;">AS</span> id
+      <span style="color: #b6a0ff;">FROM</span> pg_catalog.pg_proc p
+      <span style="color: #b6a0ff;">INNER</span> <span style="color: #b6a0ff;">JOIN</span> pg_catalog.pg_namespace n <span style="color: #b6a0ff;">ON</span> n.oid = p.pronamespace
+      <span style="color: #b6a0ff;">LEFT</span> <span style="color: #b6a0ff;">JOIN</span> pg_language l <span style="color: #b6a0ff;">ON</span> p.prolang = l.oid
+      <span style="color: #b6a0ff;">WHERE</span> n.nspname <span style="color: #b6a0ff;">NOT</span> <span style="color: #b6a0ff;">LIKE</span> <span style="color: #79a8ff;">'pg%'</span>
+        <span style="color: #b6a0ff;">AND</span> n.nspname &lt;&gt; <span style="color: #79a8ff;">'information_schema'</span>
+        <span style="color: #b6a0ff;">AND</span> n.nspname <span style="color: #b6a0ff;">IN</span> (source_schema, target_schema)
+      <span style="color: #b6a0ff;">ORDER</span> <span style="color: #b6a0ff;">BY</span> n.nspname;
+<span style="color: #b6a0ff;">END</span>;
+$BODY$
+    <span style="color: #b6a0ff;">LANGUAGE</span> plpgsql STABLE;
+</code></pre>
+</div>
+</section>
+<section id="slide-org372fcc5">
+<h3 id="org372fcc5">Generalising &amp; relational thinking&#xa0;&#xa0;&#xa0;<span class="tag"><span class="reconsile">reconsile</span></span></h3>
+<div class="org-src-container">
+
+<pre  class="src src-sql"><code trim><span style="color: #b6a0ff;">CREATE</span> <span style="color: #b6a0ff;">OR</span> REPLACE <span style="color: #b6a0ff;">FUNCTION</span> <span style="color: #feacd0;">pgdeploy.reconcile_function</span>(
+    source_schema <span style="color: #b6a0ff;">name</span>, target_schema <span style="color: #b6a0ff;">name</span>)
+<span style="color: #b6a0ff;">RETURNS</span> SETOF TEXT <span style="color: #b6a0ff;">AS</span>
+$BODY$
+<span style="color: #b6a0ff;">BEGIN</span>
+    <span style="color: #b6a0ff;">RETURN</span> QUERY
+    <span style="color: #b6a0ff;">SELECT</span> <span style="color: #b6a0ff;">DISTINCT</span> <span style="color: #b6a0ff;">CASE</span>
+      <span style="color: #b6a0ff;">WHEN</span> t_schema <span style="color: #b6a0ff;">IS</span> <span style="color: #b6a0ff;">NULL</span> <span style="color: #b6a0ff;">THEN</span>
+        <span style="color: #79a8ff;">'DROP '</span>|| (<span style="color: #b6a0ff;">CASE</span> <span style="color: #b6a0ff;">WHEN</span> a.aggfnoid <span style="color: #b6a0ff;">IS</span> <span style="color: #b6a0ff;">NOT</span> <span style="color: #b6a0ff;">NULL</span> <span style="color: #b6a0ff;">THEN</span> <span style="color: #79a8ff;">'AGGREGATE'</span> <span style="color: #b6a0ff;">ELSE</span> <span style="color: #79a8ff;">'FUNCTION'</span> <span style="color: #b6a0ff;">END</span>)
+         ||<span style="color: #79a8ff;">' IF EXISTS '</span>||s_schema||<span style="color: #79a8ff;">'.'</span>||s_objname||<span style="color: #79a8ff;">';'</span>
+      <span style="color: #b6a0ff;">WHEN</span> s_schema <span style="color: #b6a0ff;">IS</span> <span style="color: #b6a0ff;">NULL</span> <span style="color: #b6a0ff;">THEN</span>
+        replace((<span style="color: #b6a0ff;">CASE</span> <span style="color: #b6a0ff;">WHEN</span> l.lanname = <span style="color: #79a8ff;">'internal'</span>
+           <span style="color: #b6a0ff;">THEN</span> <span style="color: #79a8ff;">'-- unsupported function definition ('</span>||t_objname||<span style="color: #79a8ff;">') '</span>||p.prosrc
+           <span style="color: #b6a0ff;">ELSE</span> pg_get_functiondef(t_oid) <span style="color: #b6a0ff;">END</span>),
+          target_schema||<span style="color: #79a8ff;">'.'</span>, source_schema||<span style="color: #79a8ff;">'.'</span>)
+      <span style="color: #b6a0ff;">ELSE</span>
+        <span style="color: #79a8ff;">'-- LEFT and RIGHT of '''</span>||s_objname||<span style="color: #79a8ff;">''' are equal'</span>
+      <span style="color: #b6a0ff;">END</span> <span style="color: #b6a0ff;">AS</span> ddl
+    <span style="color: #b6a0ff;">FROM</span> pgdeploy.object_difference(source_schema, target_schema, <span style="color: #79a8ff;">'pgdeploy.cte_function'</span>)
+    <span style="color: #b6a0ff;">INNER</span> <span style="color: #b6a0ff;">JOIN</span> pg_proc p <span style="color: #b6a0ff;">ON</span> p.oid = s_oid <span style="color: #b6a0ff;">OR</span> p.oid = t_oid
+    <span style="color: #b6a0ff;">LEFT</span> <span style="color: #b6a0ff;">JOIN</span> pg_language l <span style="color: #b6a0ff;">ON</span> p.prolang = l.oid
+    <span style="color: #b6a0ff;">LEFT</span> <span style="color: #b6a0ff;">JOIN</span> pg_aggregate a <span style="color: #b6a0ff;">ON</span> a.aggfnoid = p.oid
+    <span style="color: #b6a0ff;">ORDER</span> <span style="color: #b6a0ff;">BY</span> ddl <span style="color: #b6a0ff;">DESC</span>; <span style="color: #a8a8a8;">-- comments and drops first</span>
+<span style="color: #b6a0ff;">END</span>;
+$BODY$
+    <span style="color: #b6a0ff;">LANGUAGE</span> plpgsql STABLE;
+</code></pre>
+</div>
+</section>
+<section id="slide-org2445d43">
+<h3 id="org2445d43">Generalising &amp; relational thinking&#xa0;&#xa0;&#xa0;<span class="tag"><span class="output">output</span></span></h3>
+
+
+</section>
+</section>
+<section>
+<section id="slide-org6509be3">
+<h2 id="org6509be3">Generating output&#xa0;&#xa0;&#xa0;<span class="tag"><span class="freelunch">freelunch</span></span></h2>
+</section>
+</section>
+<section>
+<section id="slide-orge1d6ade">
+<h2 id="orge1d6ade">Generating output&#xa0;&#xa0;&#xa0;<span class="tag"><span class="makinglunch">makinglunch</span></span></h2>
+</section>
+</section>
+<section>
+<section id="slide-org575cc1e">
+<h2 id="org575cc1e">Applying it</h2>
+<div class="outline-text-2" id="text-org575cc1e">
+</div>
+</section>
+<section id="slide-org5b2f043">
+<h3 id="org5b2f043">&ldquo;pipelines&rdquo;</h3>
+</section>
+<section id="slide-orgcbc9ad4">
+<h3 id="orgcbc9ad4">pgdeploy with discrete states</h3>
+</section>
+<section id="slide-orgde78c31">
+<h3 id="orgde78c31">pgdeploy against a running database</h3>
+
+</section>
+</section>
+<section>
+<section id="slide-org4e0114c">
+<h2 id="org4e0114c">Getting there</h2>
+<ul>
+<li>The systematic brilliance of PostgreSQL
+<ul>
+<li>source code quality</li>
+<li>documentation quality</li>
+<li>community quality</li>
+
+</ul></li>
+
+<li>ATEAM
+<ul>
+<li>Andre Ploger</li>
+<li>Cord Muller</li>
+<li>Laszlo Forro</li>
+
+</ul></li>
+
+<li>Robert Debowski</li>
+
+<li>pghackers mailing list</li>
+<li>prior art
+<ul>
+<li>TODO</li>
+
+</ul></li>
+
+</ul>
+</section>
+</section>
+<section>
+<section id="slide-org696cc06">
+<h2 id="org696cc06">Stats</h2>
+<p>
+As of <code>d51cf9f854be7d19f790aad9da9f125984ca5607</code>, analysis by <a href="https://github.com/boyter/scc/">boyter/scc</a>.
+</p>
+<pre  class="example">
+───────────────────────────────────────────────────────────────────────────────
+Language                 Files     Lines   Blanks  Comments     Code Complexity
+───────────────────────────────────────────────────────────────────────────────
+SQL                         38      2260      210       688     1362         73
+BASH                         5       328       65       137      126         23
+Makefile                     1        22        8         0       14          0
+Markdown                     1       994      200         0      794          0
+Org                          1       271       25         5      241          9
+Shell                        1        56        7        10       39          4
+gitignore                    1         8        0         0        8          0
+───────────────────────────────────────────────────────────────────────────────
+Total                       48      3939      515       840     2584        109
+───────────────────────────────────────────────────────────────────────────────
+Estimated Cost to Develop $73,198
+Estimated Schedule Effort 5.092429 months
+Estimated People Required 1.277007
+───────────────────────────────────────────────────────────────────────────────
+Processed 165939 bytes, 0.166 megabytes (SI)
+───────────────────────────────────────────────────────────────────────────────
+</pre>
+</section>
+</section>
+</div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js/dist/reveal.js"></script>
+
+<script>
+// Full list of configuration options available here:
+// https://github.com/hakimel/reveal.js#configuration
+Reveal.initialize({
+multiplex: {
+    secret: '', // null if client
+    id: '', // id, obtained from socket.io server
+    url: '' // Location of socket.io server
+},
+
+// Optional libraries used to extend on reveal.js
+dependencies: [
+ { src: 'https://cdn.jsdelivr.net/npm/reveal.js/lib/js/classList.js', condition: function() { return !document.body.classList; } },
+ { src: 'https://cdn.jsdelivr.net/npm/reveal.js/plugin/markdown/marked.js', condition: function() { return !!document.querySelector( '[data-markdown]' ); } },
+ { src: 'https://cdn.jsdelivr.net/npm/reveal.js/plugin/markdown/markdown.js', condition: function() { return !!document.querySelector( '[data-markdown]' ); } },
+ { src: 'https://cdn.jsdelivr.net/npm/reveal.js/plugin/zoom-js/zoom.js', async: true, condition: function() { return !!document.body.classList; } },
+ { src: 'https://cdn.jsdelivr.net/npm/reveal.js/plugin/notes/notes.js', async: true, condition: function() { return !!document.body.classList; } }]
+});
+</script>
+</body>
+</html>
