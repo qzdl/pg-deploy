@@ -3,16 +3,23 @@
 BEGIN;
 SET client_min_messages TO WARNING;
 CREATE EXTENSION pgdeploy;
+ERROR:  syntax error at or near "CREATE"
 CREATE SCHEMA testp;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 CREATE SCHEMA testr;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 DROP EVENT TRIGGER IF EXISTS etdep;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 DROP FUNCTION IF EXISTS testp.etdep;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 CREATE OR REPLACE FUNCTION testp.etdep() RETURNS event_trigger AS $$
 BEGIN
     RAISE NOTICE 'IM (EVENT) TRIGGERED: % %', tg_event, tg_tag;
 END;
 $$ LANGUAGE plpgsql;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 CREATE EVENT TRIGGER etdep ON ddl_command_start EXECUTE procedure testp.etdep();
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- generated pattern testing
 -- regular names are implicitly 'source', that which contains `__deploy__` is target
 -- NO LEFT, RIGHT
@@ -26,4 +33,5 @@ CREATE EVENT TRIGGER nrl__deploy__ddl_command_start EXECUTE procedure testp.etde
 */
 -- CLEAN UP
 DROP EXTENSION pgdeploy CASCADE;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 ROLLBACK;

@@ -36,6 +36,3 @@ BEGIN
 END;
 $BODY$
     LANGUAGE plpgsql STABLE;
-
---select * from pgdeploy.cte_type('testp'::name, 'testr'::name);
-select * from pgdeploy.object_difference('testp'::name, 'testr'::name, 'pgdeploy.cte_attribute');

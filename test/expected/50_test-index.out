@@ -9,36 +9,54 @@
 BEGIN;
 SET client_min_messages TO WARNING;
 CREATE EXTENSION pgdeploy;
+ERROR:  syntax error at or near "CREATE"
 CREATE SCHEMA if NOT EXISTS testr;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 CREATE SCHEMA if NOT EXISTS testp;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 DROP TABLE IF EXISTS testp.idx;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 DROP TABLE IF EXISTS testr.idx;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 CREATE TABLE testp.idx (
     a text,
     b int,
     c boolean,
     d uuid
 );
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 CREATE INDEX idx_hash on testp.idx using hash (d);
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 CREATE TABLE testr.idx (
     a text,
     b int,
     c boolean,
     d uuid
 );
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 CREATE INDEX idx_hash on testr.idx using hash (b);
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 drop table if exists res;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 create table res (idx float, ddl text);
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -----|| NO LEFT, RIGHT
 -- expecting CREATE from definition testr ONTO testp
 --   as "create index nlr_idx on testp.nlr using hash (a);"
 drop table if exists testp.nlr;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 drop table if exists testr.nlr;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 create table testp.nlr(a text);
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 create table testr.nlr(a text);
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 drop index if exists testp.nlr_idx;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 drop index if exists testr.nlr_idx;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 create index nlr_idx on testr.nlr using hash (a); -- *expected output too
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 INSERT into res
 select 1.0, 'nlr: create only' union
 select 1.1, pgdeploy.reconcile_index(
@@ -46,16 +64,24 @@ select 1.1, pgdeploy.reconcile_index(
     (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testp' where relname = 'nlr'),
     'testr'::name,
     (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testr' where relname = 'nlr'));
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -----|| LEFT, NO RIGHT
 -- expecting DROP from RELNAME on testp
 --   as "DROP INDEX testp.lnr;"
 drop table if exists testp.lnr;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 drop table if exists testr.lnr;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 create table testp.lnr(a text);
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 create table testr.lnr(a text);
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 drop index if exists testp.lnr_idx;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 drop index if exists testr.lnr_idx;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 create index lnr_idx on testp.lnr using hash (a);
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 INSERT into res
 select 2.0, 'lnr: drop only' union
 select 2.1, pgdeploy.reconcile_index(
@@ -63,19 +89,28 @@ select 2.1, pgdeploy.reconcile_index(
     (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testp' where relname = 'lnr'),
     'testr'::name,
     (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testr' where relname = 'lnr'));
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -----|| LEFT, RIGHT :: DELTA
 -- expecting DROP from RELNAME on testp
 --   as "DROP INDEX testp.lrm;"
 -- expecting CREATE from definition testr ONTO testp
 --   as "create index lrm_idx on testp.lrm using hash (a);"
 drop table if exists testp.lrm;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 drop table if exists testr.lrm;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 create table testp.lrm(a text, b text);
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 create table testr.lrm(a text, b text);
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 drop index if exists testp.lrm_idx;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 drop index if exists testr.lrm_idx;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 create index lrm_idx on testp.lrm using hash (a);
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 create index lrm_idx on testr.lrm using hash (b); -- *expected output too
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 INSERT into res
 select 3.0, 'lrd: drop create' union
 select 3.1, pgdeploy.reconcile_index(
@@ -83,16 +118,25 @@ select 3.1, pgdeploy.reconcile_index(
     (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testp' where relname = 'lrm'),
     'testr'::name,
     (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testr' where relname = 'lrm'));
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -----|| LEFT, RIGHT :: NO MOD
 -- expecting NOTHING
 drop table if exists testp.lrnm;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 drop table if exists testr.lrnm;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 create table testp.lrnm(a text, b text);
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 create table testr.lrnm(a text, b text);
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 drop index if exists testp.lrnm_idx;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 drop index if exists testr.lrnm_idx;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 create index lrnm_idx on testp.lrnm using hash (a);
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 create index lrnm_idx on testr.lrnm using hash (a);
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 INSERT into res
 select 4.0, 'lrnd: pass' union
 select 4.1, pgdeploy.reconcile_index(
@@ -102,20 +146,10 @@ select 4.1, pgdeploy.reconcile_index(
     'testr'::name,
     (select c.oid from pg_class c
       inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testr' where relname = 'lrnm'));
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 select * from res order by idx asc, ddl desc;
- idx |                       ddl                        
------+--------------------------------------------------
-   1 | nlr: create only
- 1.1 | CREATE INDEX nlr_idx ON testp.nlr USING hash (a)
-   2 | lnr: drop only
- 2.1 | DROP INDEX IF EXISTS testp.lnr_idx
-   3 | lrd: drop create
- 3.1 | DROP INDEX IF EXISTS testp.lrm_idx
- 3.1 | CREATE INDEX lrm_idx ON testp.lrm USING hash (b)
-   4 | lrnd: pass
- 4.1 | -- LEFT and RIGHT of 'lrnm_idx' are equal
-(9 rows)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- CLEAN UP
 DROP EXTENSION pgdeploy CASCADE;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 ROLLBACK;

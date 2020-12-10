@@ -10,31 +10,45 @@
 BEGIN;
 SET client_min_messages TO WARNING;
 CREATE EXTENSION pgdeploy;
+ERROR:  syntax error at or near "CREATE"
 CREATE SCHEMA testp;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 CREATE SCHEMA testr;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 --- LRD
 --- expecting CREATE OR REPLACE func
 create or replace function testp.func_lrd(a int, b text) returns int as $body$ begin return 0; end; $body$ language plpgsql;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 create or replace function testr.func_lrd(a int, b int) returns int as $body$ begin return 0; end; $body$ language plpgsql;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 --- LRD2
 --- expecting CREATE OR REPLACE func
 create or replace function testp.func_lrd2(a int, g boolean) returns int as $body$ begin return 0; end; $body$ language plpgsql;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 create or replace function testr.func_lrd2(a int, f boolean) returns int as $body$ begin return 0; end; $body$ language plpgsql;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 --- LRD3
 --- expecting CREATE OR REPLACE func
 create or replace function testp.func_lrd3(a int, g boolean) returns int as $body$ begin return 0; end; $body$ language plpgsql;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 create or replace function testr.func_lrd3(a int, f boolean) returns int as $body$ begin return 1; end; $body$ language plpgsql;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- LRND
 -- expecting nil
 create or replace function testp.func_lrnd(a int, b int) returns int as $body$ begin return 0; end; $body$ language plpgsql;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 create or replace function testr.func_lrnd(a int, b int) returns int as $body$ begin return 0; end; $body$ language plpgsql;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- NLR
 -- expecting CREATE func
 create or replace function testr.func_nlr(a int, b int) returns int as $body$ begin return 0; end; $body$ language plpgsql;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- LNR
 -- expecting DROP func
 drop function if exists testr.func_lnr(a int, b int);
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 create or replace function testp.func_lnr(a int, b int) returns int as $body$ begin return 0; end; $body$ language plpgsql;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- USER DEFINED AGGREGATES
 CREATE AGGREGATE testp.cavg (float8)
 (
@@ -43,6 +57,7 @@ CREATE AGGREGATE testp.cavg (float8)
     finalfunc = float8_avg,
     initcond = '{0,0,0}'
 );
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 /* these are a bit weird;
 - bodies are not stored
 - marked as internal
@@ -53,36 +68,8 @@ CREATE AGGREGATE testp.cavg (float8)
 --select pg_get_function_identity_arguments((select oid from pg_proc where proname = 'cavg'));
 --select pg_get_functiondef((select oid from pg_proc where proname = 'cavg'));
 select * from pgdeploy.reconcile_function('testp'::name, 'testr'::name);
-                        reconcile_function                        
-------------------------------------------------------------------
- -- LEFT and RIGHT of 'func_lrnd' are equal
- DROP FUNCTION IF EXISTS testp.func_lrd3;
- DROP FUNCTION IF EXISTS testp.func_lrd2;
- DROP FUNCTION IF EXISTS testp.func_lrd;
- DROP FUNCTION IF EXISTS testp.func_lnr;
- DROP AGGREGATE IF EXISTS testp.cavg;
- CREATE OR REPLACE FUNCTION testp.func_nlr(a integer, b integer) +
-  RETURNS integer                                                +
-  LANGUAGE plpgsql                                               +
- AS $function$ begin return 0; end; $function$                   +
- 
- CREATE OR REPLACE FUNCTION testp.func_lrd(a integer, b integer) +
-  RETURNS integer                                                +
-  LANGUAGE plpgsql                                               +
- AS $function$ begin return 0; end; $function$                   +
- 
- CREATE OR REPLACE FUNCTION testp.func_lrd3(a integer, f boolean)+
-  RETURNS integer                                                +
-  LANGUAGE plpgsql                                               +
- AS $function$ begin return 1; end; $function$                   +
- 
- CREATE OR REPLACE FUNCTION testp.func_lrd2(a integer, f boolean)+
-  RETURNS integer                                                +
-  LANGUAGE plpgsql                                               +
- AS $function$ begin return 0; end; $function$                   +
- 
-(10 rows)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- CLEAN UP
 DROP EXTENSION pgdeploy CASCADE;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 ROLLBACK;

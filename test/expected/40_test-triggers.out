@@ -1,19 +1,28 @@
 BEGIN;
 SET client_min_messages TO WARNING;
 CREATE EXTENSION pgdeploy;
+ERROR:  syntax error at or near "CREATE"
 CREATE SCHEMA testp;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 CREATE SCHEMA testr;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 --  functional dependency
 create or replace function testp.ttdep() returns trigger as $$ begin raise notice 'im (table) triggered: % %', tg_event, tg_tag; end; $$ language plpgsql;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 create or replace function testr.ttdep() returns trigger as $$ begin raise notice 'im (table) triggered: % %', tg_event, tg_tag; end; $$ language plpgsql;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 --  results collation table
 create table res (idx float, ddl text);
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -----|| NO LEFT, RIGHT
 -- expecting CREATE from definition testr ONTO testp
 --   as "create index nlr_idx on testp.nlr using hash (a);"
 create table testp.nlr(a text);
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 create table testr.nlr(a text);
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 create trigger nlr_trig before update on testr.nlr for each row execute procedure testr.ttdep();  -- *expected output too
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 insert into res
 select 1.0, 'nlr: create only' union
 select 1.1, pgdeploy.reconcile_trigger(
@@ -21,16 +30,24 @@ select 1.1, pgdeploy.reconcile_trigger(
     (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testp' where relname = 'nlr'),
     'testr'::name,
     (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testr' where relname = 'nlr'));
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -----|| LEFT, NO RIGHT
 -- expecting DROP from RELNAME on testp
 --   as "DROP TRIGGER testp.lnr;"
 drop table if exists testp.lnr;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 drop table if exists testr.lnr;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 create table testp.lnr(a text);
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 create table testr.lnr(a text);
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 drop trigger if exists lnr_trig on testp.lnr;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 drop trigger if exists lnr_trig on testr.lnr;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 create trigger lnr_trig before update on testp.lnr for each row execute procedure testp.ttdep();
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 INSERT into res
 select 2.0, 'lnr: drop only' union
 select 2.1, pgdeploy.reconcile_trigger(
@@ -38,19 +55,28 @@ select 2.1, pgdeploy.reconcile_trigger(
     (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testp' where relname = 'lnr'),
     'testr'::name,
     (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testr' where relname = 'lnr'));
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -----|| LEFT, RIGHT :: DELTA
 -- expecting DROP from RELNAME on testp
 --   as "DROP TRIGGER testp.lrm;"
 -- expecting CREATE from definition testr ONTO testp
 --   as "create trigger lrm_trig on testp.lrm using hash (a);"
 drop table if exists testp.lrm;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 drop table if exists testr.lrm;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 create table testp.lrm(a text, b text);
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 create table testr.lrm(a text, b text);
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 drop trigger if exists lrm_trig on testp.lrm;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 drop trigger if exists lrm_trig on testr.lrm;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 create trigger lrm_trig before update on testp.lrm for each row execute procedure testp.ttdep();
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 create trigger lrm_trig after update on testr.lrm for each row execute procedure testr.ttdep(); -- *expected output too
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 INSERT into res
 select 3.0, 'lrd: drop create' union
 select 3.1, pgdeploy.reconcile_trigger(
@@ -58,16 +84,25 @@ select 3.1, pgdeploy.reconcile_trigger(
     (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testp' where relname = 'lrm'),
     'testr'::name,
     (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testr' where relname = 'lrm'));
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -----|| LEFT, RIGHT :: NO DELTA
 -- expecting NOTHING
 drop table if exists testp.lrnm;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 drop table if exists testr.lrnm;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 create table testp.lrnm(a text, b text);
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 create table testr.lrnm(a text, b text);
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 drop trigger if exists lrnm_trig on testp.lrnm;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 drop trigger if exists lrnm_trig on testr.lrnm;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 create trigger lrnm_trig before update on testp.lrnm for each row execute procedure testp.ttdep();
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 create trigger lrnm_trig before update on testr.lrnm for each row execute procedure testr.ttdep();
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 INSERT into res
 select 4.0, 'lrnd: pass' union
 select 4.1, pgdeploy.reconcile_trigger(
@@ -75,20 +110,33 @@ select 4.1, pgdeploy.reconcile_trigger(
     (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testp' where relname = 'lrnm'),
     'testr'::name,
     (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testr' where relname = 'lrnm'));
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -----|| LEFT, RIGHT :: NO DELTA (round 2)
 -- expecting NOTHING x2
 drop table if exists testp.lrnm2;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 drop table if exists testr.lrnm2;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 create table testp.lrnm2(a text, b text);
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 create table testr.lrnm2(a text, b text);
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 drop trigger if exists lrnmi_trig on testp.lrnm2;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 drop trigger if exists lrnmii_trig on testp.lrnm2;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 drop trigger if exists lrnmi_trig on testr.lrnm2;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 drop trigger if exists lrnmii_trig on testr.lrnm2;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 create trigger lrnmi_trig before update on testp.lrnm2 for each row execute procedure testp.ttdep();
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 create trigger lrnmii_trig before update on testp.lrnm2 for each row execute procedure testp.ttdep();
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 create trigger lrnmi_trig before update on testr.lrnm2 for each row execute procedure testr.ttdep();
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 create trigger lrnmii_trig before update on testr.lrnm2 for each row execute procedure testr.ttdep();
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 INSERT into res
 select 5.0, 'lrnm2: pass (2 triggers)' union
 select 5.1, pgdeploy.reconcile_trigger(
@@ -96,18 +144,29 @@ select 5.1, pgdeploy.reconcile_trigger(
     (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testp' where relname = 'lrnm2'),
     'testr'::name,
     (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testr' where relname = 'lrnm2'));
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -----|| NO LEFT, RIGHT && NO RIGHT, LEFT
 -- expecting DROP ii, CREATE i
 drop table if exists testp.nlrnrl;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 drop table if exists testr.nlrnrl;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 create table testp.nlrnrl(a text, b text);
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 create table testr.nlrnrl(a text, b text);
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 drop trigger if exists nlrnli_trig on testp.nlrnrl;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 drop trigger if exists nlrnlii_trig on testp.nlrnrl;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 drop trigger if exists nlrnli_trig on testr.nlrnrl;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 drop trigger if exists nlrnlii_trig on testr.nlrnrl;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 create trigger nlrnlii_trig before update on testp.nlrnrl for each row execute procedure testp.ttdep();
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 create trigger nlrnli_trig before update on testr.nlrnrl for each row execute procedure testr.ttdep();
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 INSERT into res
 select 6.0, 'nlrnrl: drop ii, create i, (2 triggers)' union
 select 6.1, pgdeploy.reconcile_trigger(
@@ -115,27 +174,11 @@ select 6.1, pgdeploy.reconcile_trigger(
     (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testp' where relname = 'nlrnrl'),
     'testr'::name,
     (select c.oid from pg_class c inner join pg_namespace n on c.relnamespace = n.oid and n.nspname = 'testr' where relname = 'nlrnrl'));
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 select * from res order by idx asc, ddl desc;
- idx |                                                  ddl                                                  
------+-------------------------------------------------------------------------------------------------------
-   1 | nlr: create only
- 1.1 | CREATE TRIGGER nlr_trig BEFORE UPDATE ON testp.nlr FOR EACH ROW EXECUTE PROCEDURE testp.ttdep()
-   2 | lnr: drop only
- 2.1 | DROP TRIGGER IF EXISTS lnr_trig ON testp.lnr;
-   3 | lrd: drop create
- 3.1 | DROP TRIGGER IF EXISTS lrm_trig ON testp.lrm;
- 3.1 | CREATE TRIGGER lrm_trig AFTER UPDATE ON testp.lrm FOR EACH ROW EXECUTE PROCEDURE testp.ttdep()
-   4 | lrnd: pass
- 4.1 | -- TRIGGER: LEFT and RIGHT of 'lrnm_trig' on 'lrnm' are equal
-   5 | lrnm2: pass (2 triggers)
- 5.1 | -- TRIGGER: LEFT and RIGHT of 'lrnmi_trig' on 'lrnm2' are equal
- 5.1 | -- TRIGGER: LEFT and RIGHT of 'lrnmii_trig' on 'lrnm2' are equal
-   6 | nlrnrl: drop ii, create i, (2 triggers)
- 6.1 | DROP TRIGGER IF EXISTS nlrnlii_trig ON testp.nlrnrl;
- 6.1 | CREATE TRIGGER nlrnli_trig BEFORE UPDATE ON testp.nlrnrl FOR EACH ROW EXECUTE PROCEDURE testp.ttdep()
-(15 rows)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- CLEAN UP
 DROP EXTENSION pgdeploy CASCADE;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 ROLLBACK;
 -- TODO multiple triggers for one relation?

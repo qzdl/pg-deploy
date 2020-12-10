@@ -1,5 +1,5 @@
 # pgdeploy
-comment = 'A proof-of-concept to calculate transformation rules between shemas'
+comment = 'A proof-of-concept to calculate transformation rules between schema'
 default_version = '0.0.1'
 relocatable = false
 schema = 'pgdeploy'

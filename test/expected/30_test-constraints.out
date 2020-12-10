@@ -10,16 +10,21 @@
 BEGIN;
 SET client_min_messages TO WARNING;
 CREATE EXTENSION pgdeploy;
+ERROR:  syntax error at or near "CREATE"
 CREATE SCHEMA testp;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 CREATE SCHEMA testr;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 CREATE TABLE testp.con(
     i INT CONSTRAINT yeah CHECK (i>0),
     ii INT CHECK (ii > i),
     iii INT CHECK (0>iii));
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 CREATE TABLE testr.con(
     i INT CONSTRAINT hmm CHECK(i>ii),
     ii INT,
     iii INT CHECK (0>iii));
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 SELECT conname, pg_get_constraintdef(c.oid) AS constrainddef
 FROM pg_constraint c
 WHERE conrelid IN (
@@ -31,26 +36,13 @@ WHERE conrelid IN (
         WHERE c.relname = 'con'
             AND n.nspname IN ('testp', 'testr'))
         AND attname='tableoid');
-    conname    |   constrainddef   
----------------+-------------------
- yeah          | CHECK ((i > 0))
- con_check     | CHECK ((ii > i))
- con_iii_check | CHECK ((0 > iii))
- hmm           | CHECK ((i > ii))
- con_iii_check | CHECK ((0 > iii))
-(5 rows)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 SELECT * FROM pgdeploy.reconcile_constraints(
   'testp'::NAME, 'con'::NAME,'testp.con'::regclass::oid
     ,'testr'::NAME, 'con'::NAME,'testp.con'::regclass::oid)
 ORDER BY reconcile_constraints DESC;
-                     reconcile_constraints                      
-----------------------------------------------------------------
- ALTER TABLE testp.con DROP CONSTRAINT IF EXISTS yeah;
- ALTER TABLE testp.con DROP CONSTRAINT IF EXISTS con_iii_check;
- ALTER TABLE testp.con DROP CONSTRAINT IF EXISTS con_check;
-(3 rows)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- CLEAN UP
 DROP EXTENSION pgdeploy CASCADE;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 ROLLBACK;

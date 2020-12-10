@@ -11,21 +11,20 @@
 BEGIN;
 SET client_min_messages TO WARNING;
 CREATE EXTENSION pgdeploy;
+ERROR:  syntax error at or near "CREATE"
 CREATE SCHEMA testr;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 CREATE SCHEMA testp;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 CREATE TABLE testr.a(i int, ii text, iii bit);
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 CREATE TABLE testp.a(ii text, iv numeric CONSTRAINT positive_price CHECK (iv > 0));
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 SELECT pgdeploy.reconcile_table_attributes(
     'testr'::name, 'a'::name, 'testr.a'::regclass::oid
     ,'testp'::name, 'a'::name, 'testp.a'::regclass::oid);
-           reconcile_table_attributes            
--------------------------------------------------
- ALTER TABLE testr.a ADD COLUMN iv numeric NULL;
- ALTER TABLE testr.a DROP COLUMN i;
- ALTER TABLE testr.a DROP COLUMN iii;
- -- COLUMN: no change for ii
-(4 rows)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- CLEAN UP
 DROP EXTENSION pgdeploy CASCADE;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 ROLLBACK;

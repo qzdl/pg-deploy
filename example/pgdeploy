@@ -90,7 +90,7 @@ collect_schema() {
 
 SOURCE_OUTPUT=/tmp/src
 TARGET_OUTPUT=/tmp/tgt
-TARGET_SCHEMA='testp'
+TARGET_SCHEMA='whatr'
 TESTDB='pgd_test'
 
 $QUIET || splash
