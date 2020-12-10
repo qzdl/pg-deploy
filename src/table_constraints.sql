@@ -14,7 +14,7 @@ DECLARE
     _constraints record;
     ddl text;
 BEGIN
-    RAISE NOTICE 'RECONCILE CONSTRAINT: %', source_schema||':'||source_rel||':'||source_oid||'|'||target_schema||':'||target_rel||':'||target_oid;
+    --RAISE NOTICE 'RECONCILE CONSTRAINT: %', source_schema||':'||source_rel||':'||source_oid||'|'||target_schema||':'||target_rel||':'||target_oid;
 
     RETURN QUERY
     SELECT DISTINCT
@@ -34,7 +34,3 @@ BEGIN
 END;
 $BODY$
     LANGUAGE plpgsql STABLE;
-
---select * from pgdeploy.reconcile_constraints(
---    'testp'::name, 'con'::name, (SELECT c.oid FROM pg_class c INNER JOIN pg_namespace n ON n.oid = c.relnamespace and c.relname = 'con' and n.nspname = 'testp'),
---    'testr'::name, 'con'::name, (SELECT c.oid FROM pg_class c INNER JOIN pg_namespace n ON n.oid = c.relnamespace and c.relname = 'con' and n.nspname = 'testr'));

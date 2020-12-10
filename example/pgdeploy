@@ -1,0 +1,153 @@
+#!/bin/bash
+# <exec-shell-cmd "chmod +x ./pgdeploy">
+
+POSITIONAL=()
+while [[ $# -gt 0 ]]
+do
+key="$1"
+
+case $key in
+    -s|--schema)
+    SCHEMA="$2"
+    shift # past argument
+    shift # past value
+    ;;
+    -d|--dirs)
+    DIRS=1
+    shift # past argument
+    # shift # past value # no value
+    ;;
+    -g|--git)
+    GIT=1
+    shift # past arg
+    ;;
+    --source)
+    SOURCE="$2"
+    shift # past argument
+    shift # past value
+    ;;
+    --target)
+    TARGET="$2"
+    shift # past argument
+    shift # past value
+    ;;
+    -q|--quiet)
+    QUIET=1
+    shift # past arg
+    ;;
+    --default)
+    DEFAULT=YES
+    shift # past argument
+    ;;
+    *)    # unknown option
+    POSITIONAL+=("$1") # save it in an array for later
+    shift # past argument
+    ;;
+esac
+done
+
+splash() {
+  echo "
+pgdeploy :: The PostgreSQL generative object transformer
+(GPLv3+) Copyright (C) 2020  Samuel Culpepper
+
+This program comes with ABSOLUTELY NO WARRANTY.
+
+This is free software, and you are welcome to redistribute it under certain
+conditions.
+
+See 'https://gnu.org/licenses' for information on how to make and keep software
+free.
+
+===============================================================================
+
+ ███████    ████████  ███████   ████████ ███████  ██         ███████   ██    ██
+░██░░░░██  ██░░░░░░██░██░░░░██ ░██░░░░░ ░██░░░░██░██        ██░░░░░██ ░░██  ██
+░██   ░██ ██      ░░ ░██    ░██░██      ░██   ░██░██       ██     ░░██ ░░████
+░███████ ░██         ░██    ░██░███████ ░███████ ░██      ░██      ░██  ░░██
+░██░░░░  ░██    █████░██    ░██░██░░░░  ░██░░░░  ░██      ░██      ░██   ░██
+░██      ░░██  ░░░░██░██    ██ ░██      ░██      ░██      ░░██     ██    ░██
+░██       ░░████████ ░███████  ░████████░██      ░████████ ░░███████     ░██
+░░         ░░░░░░░░  ░░░░░░░   ░░░░░░░░ ░░       ░░░░░░░░   ░░░░░░░      ░░
+
+===============================================================================
+
+  PWD : $(pwd)
+  TIME: $(date)
+"
+}
+
+collect_schema() {
+    # Concatenate the sql files that are needed for the reconciliation.
+    # loop for  sql files that contain $1/pattern        in this dir/$2
+    # (awk)    get the filepath      burp f contents to stdout
+    for f in $(grep -R "$1\." -c --include=*.sql $2 \
+        | awk -F '[,:]' '{print $1}'); do echo "-- $f" && cat $f; done
+
+    # rename inplace for live runs, loading only target/$4 definitions
+    # [ -z $4 ] && cat $3 | sed "s/$1\./$4\./g" > $3
+}
+
+SOURCE_OUTPUT=/tmp/src
+TARGET_OUTPUT=/tmp/tgt
+TARGET_SCHEMA='testp'
+TESTDB='pgd_test'
+
+$QUIET || splash
+
+# CREATE TESTDB:
+sql="psql -d $TESTDB"
+psql -c "DROP DATABASE $TESTDB" -q   | grep -i error && echo "ERROR: Failure dropping $TESTDB" && exit 1
+psql -c "CREATE DATABASE $TESTDB" -q | grep -i error && echo "ERROR: Failure creating $TESTDB" && exit 1
+
+# CREATE PGDEPLOY FOR `TESTDB':
+$sql -c 'create extension pgdeploy' -q | grep -i error && echo "ERROR: Failure creating extension on $TESTDB" && exit 1
+
+# GET/LOAD TARGET STATE:
+collect_schema $SCHEMA $TARGET > $TARGET_OUTPUT
+$sql -f $TARGET_OUTPUT -q
+
+# RENAME TARGET DEFS TO `TARGET_SCHEMA':
+$sql -c "alter schema $SCHEMA rename to $TARGET_SCHEMA" -q
+
+# GET/LOAD SOURCE STATE:
+collect_schema $SCHEMA $SOURCE > $SOURCE_OUTPUT
+$sql -f $SOURCE_OUTPUT -q
+
+# RECONSILE to `run-me.sql':
+reconcile="select ddl from pgdeploy.reconcile_schema('$SCHEMA'::name, '$TARGET_SCHEMA'::name)"
+OUTPUT=$($sql -t -q -c  "$reconcile")
+echo "$OUTPUT"
+
+$QUIET || echo  "
+
+======
+STAT:
+======
+
+TESTDB:        $TESTDB
+SQL CMD:       $sql
+
+SOURCE_SCHEMA: $SCHEMA
+TARGET_SCHEMA: $TARGET_SCHEMA
+
+SOURCE_OUTPUT: $SOURCE_OUTPUT --->
+
+$(cat $SOURCE_OUTPUT)
+
+<---
+
+TARGET_OUTPUT: $TARGET_OUTPUT --->
+
+$(cat $TARGET_OUTPUT)
+
+<---
+
+OUTPUT SCRIPT: --->
+
+$OUTPUT
+
+<---"
+
+
+exit 0;

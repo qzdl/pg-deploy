@@ -74,7 +74,7 @@ $sql -t -q -c  "$reconcile" -o run-me.sql
 echo  "
 
 ======
-DEBUG:
+STAT:
 ======
 
 TESTDB:        $TESTDB
@@ -95,7 +95,7 @@ $(cat $TARGET_OUTPUT)
 
 <---
 
-OUTPUT SCRIPT: ./run-me.sql --->
+OUTPUT SCRIPT: --->
 
 $(cat ./run-me.sql)
 
