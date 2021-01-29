@@ -10,7 +10,7 @@ BEGIN
          ||' IF EXISTS '||s_schema||'.'||s_objname||';'
       WHEN s_schema IS NULL THEN
         replace((CASE WHEN l.lanname = 'internal'
-           THEN '-- unsupported function definition ('||t_objname||') '||p.prosrc
+           THEN '-- WARNING: unsupported function definition ('||t_objname||') '||p.prosrc
            ELSE pg_get_functiondef(t_oid) END),
           target_schema||'.', source_schema||'.')
       ELSE
